@@ -1,0 +1,248 @@
+const pendingScripts = new Map();
+const initializationPromises = new WeakMap();
+let renderQueue = Promise.resolve();
+let renderSequence = 0;
+
+const STYLE_ATTRIBUTE = 'data-base3-chatbot-mermaid-styles';
+const BLOCK_SELECTOR = 'pre > code.language-mermaid';
+
+function getDocument(context) {
+	return context.root?.ownerDocument || globalThis.document;
+}
+
+function ensureStyles(root) {
+	if (!root || typeof root.querySelector !== 'function' || root.querySelector(`style[${STYLE_ATTRIBUTE}]`)) {
+		return;
+	}
+
+	const document = root.ownerDocument || globalThis.document;
+	if (!document || typeof document.createElement !== 'function') {
+		return;
+	}
+
+	const style = document.createElement('style');
+	style.setAttribute(STYLE_ATTRIBUTE, '');
+	style.textContent = `
+.base3-chatbot-mermaid { max-width: 100%; margin: 1rem 0; overflow: auto; }
+.base3-chatbot-mermaid svg { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+.base3-chatbot-mermaid-error { border-inline-start: 0.3rem solid #8b2f2f; border-radius: 0.25rem; padding: 0.85rem 1rem; color: #8b2f2f; background: color-mix(in srgb, currentColor 7%, transparent); white-space: pre-wrap; overflow-wrap: anywhere; }
+`;
+	root.appendChild(style);
+}
+
+function loadScript(document, url) {
+	url = String(url || '').trim();
+	if (!url) {
+		return Promise.reject(new Error('MermaidPlugin requires pluginOptions.mermaid.scriptUrl.'));
+	}
+	if (pendingScripts.has(url)) {
+		return pendingScripts.get(url);
+	}
+
+	const promise = new Promise((resolve, reject) => {
+		const existing = typeof document.querySelectorAll === 'function'
+			? [...document.querySelectorAll('script[data-base3-module-resource]')].find(
+				(script) => script.dataset?.base3ModuleResource === url
+			)
+			: null;
+		if (existing) {
+			if (existing.dataset.loaded === '1') {
+				resolve();
+				return;
+			}
+			existing.addEventListener('load', resolve, { once: true });
+			existing.addEventListener('error', reject, { once: true });
+			return;
+		}
+
+		const script = document.createElement('script');
+		script.src = url;
+		script.async = true;
+		script.dataset.base3ModuleResource = url;
+		script.addEventListener('load', () => {
+			script.dataset.loaded = '1';
+			resolve();
+		}, { once: true });
+		script.addEventListener('error', () => {
+			reject(new Error(`Unable to load script "${url}".`));
+		}, { once: true });
+		document.head.appendChild(script);
+	});
+
+	pendingScripts.set(url, promise);
+	return promise;
+}
+
+function initializeMermaid(mermaid) {
+	if (initializationPromises.has(mermaid)) {
+		return initializationPromises.get(mermaid);
+	}
+
+	const promise = Promise.resolve().then(() => {
+		mermaid.initialize({
+			startOnLoad: false,
+			securityLevel: 'strict'
+		});
+		return mermaid;
+	});
+	initializationPromises.set(mermaid, promise);
+	return promise;
+}
+
+async function resolveMermaid(context, options) {
+	let mermaid = context.resolveGlobal('mermaid');
+	if (mermaid && typeof mermaid.render === 'function' && typeof mermaid.initialize === 'function') {
+		return initializeMermaid(mermaid);
+	}
+
+	const document = getDocument(context);
+	if (!document || typeof document.createElement !== 'function') {
+		throw new Error('Mermaid rendering requires a document.');
+	}
+
+	await loadScript(document, options.scriptUrl);
+	mermaid = context.resolveGlobal('mermaid');
+	if (!mermaid || typeof mermaid.render !== 'function' || typeof mermaid.initialize !== 'function') {
+		throw new Error('Mermaid was loaded but did not expose its global API.');
+	}
+
+	return initializeMermaid(mermaid);
+}
+
+function createRenderId() {
+	renderSequence += 1;
+	const suffix = globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function'
+		? globalThis.crypto.randomUUID().replace(/[^a-zA-Z0-9_-]/g, '')
+		: `${Date.now().toString(16)}-${renderSequence.toString(16)}`;
+	return `base3-chatbot-mermaid-${suffix}`;
+}
+
+function normalizeSource(code) {
+	return String(code?.textContent || '')
+		.replace(/\r\n?/g, '\n')
+		.trim();
+}
+
+function enqueueRender(task) {
+	const result = renderQueue.then(task, task);
+	renderQueue = result.catch(() => {});
+	return result;
+}
+
+function createErrorElement(document, error) {
+	const element = document.createElement('div');
+	element.className = 'base3-chatbot-mermaid base3-chatbot-mermaid-error';
+	element.setAttribute('role', 'alert');
+	element.textContent = `Mermaid error: ${error?.message || error}`;
+	return element;
+}
+
+async function renderCodeBlock(context, state, code) {
+	if (!code || code.dataset?.base3MermaidState) {
+		return;
+	}
+
+	const container = code.parentElement;
+	if (!container || typeof container.replaceWith !== 'function') {
+		return;
+	}
+
+	const source = normalizeSource(code);
+	if (!source) {
+		return;
+	}
+
+	code.dataset.base3MermaidState = 'rendering';
+	const document = code.ownerDocument || getDocument(context);
+
+	try {
+		const mermaid = await resolveMermaid(context, state.options);
+		if (state.destroyed || code.isConnected === false) {
+			return;
+		}
+
+		const result = await enqueueRender(() => mermaid.render(createRenderId(), source));
+		if (state.destroyed || code.isConnected === false) {
+			return;
+		}
+
+		const svg = typeof result === 'string' ? result : String(result?.svg || '');
+		if (!svg.trim()) {
+			throw new Error('Mermaid returned an empty diagram.');
+		}
+
+		const host = document.createElement('div');
+		host.className = 'base3-chatbot-mermaid';
+		host.setAttribute('role', 'img');
+		host.setAttribute('aria-label', 'Mermaid diagram');
+		host.innerHTML = svg;
+		container.replaceWith(host);
+
+		if (result && typeof result.bindFunctions === 'function') {
+			result.bindFunctions(host);
+		}
+	} catch (error) {
+		if (state.destroyed || code.isConnected === false) {
+			return;
+		}
+		container.replaceWith(createErrorElement(document, error));
+		context.events.emit('chatbot:error', error);
+	}
+}
+
+function renderElement(context, state, element) {
+	if (!element || typeof element.querySelectorAll !== 'function') {
+		return;
+	}
+
+	element.querySelectorAll(BLOCK_SELECTOR).forEach((code) => {
+		renderCodeBlock(context, state, code);
+	});
+}
+
+function getMessageElement(payload) {
+	return payload?.content || payload?.element || null;
+}
+
+export const MermaidPlugin = {
+	name: 'mermaid',
+
+	install(context) {
+		this.states ??= new WeakMap();
+
+		const state = {
+			destroyed: false,
+			options: context.getPluginOptions(),
+			unsubscribe: []
+		};
+		this.states.set(context.chatbot, state);
+		ensureStyles(context.root);
+
+		state.unsubscribe.push(
+			context.events.on('message:completed', (payload) => {
+				if (!payload?.interaction && !payload?.error) {
+					renderElement(context, state, getMessageElement(payload));
+				}
+			}),
+			context.events.on('message:hydrated', (payload) => {
+				if (payload?.role === 'assistant' && !payload?.error) {
+					renderElement(context, state, getMessageElement(payload));
+				}
+			}),
+			context.events.on('opening-message:loaded', ({ element }) => {
+				renderElement(context, state, element);
+			})
+		);
+	},
+
+	destroy(context) {
+		const state = this.states?.get(context.chatbot);
+		if (!state) {
+			return;
+		}
+
+		state.destroyed = true;
+		state.unsubscribe.forEach((unsubscribe) => unsubscribe());
+		this.states.delete(context.chatbot);
+	}
+};

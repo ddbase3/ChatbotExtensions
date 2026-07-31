@@ -7,6 +7,7 @@ Every capability is a separately discoverable `AssistantFoundation\Api\IAssistan
 Included capabilities:
 
 - MathJax formulas
+- Mermaid diagrams
 - callouts and notices
 - KPI cards
 - progress indicators
@@ -27,6 +28,8 @@ ClientStack owns only the generic Chatbot plugin lifecycle and neutral message-c
 - examples
 - tests
 
+Mermaid diagrams are emitted as ordinary fenced `mermaid` blocks and rendered by `assets/chatbot/MermaidPlugin.js` with the Mermaid library deployed by ClientStack. The source remains plain text in the assistant response and chat history.
+
 MathJax-specific Markdown protection is implemented by `assets/chatbot/MathJaxPlugin.js` through the generic `prepareMessageContent` and `finalizeMessageContent` hooks. ClientStack contains no MathJax parser or connector logic.
 
 The structured renderers use fenced JSON blocks and create DOM nodes with `textContent`. They do not execute model-generated JavaScript or HTML.
@@ -40,6 +43,6 @@ Extensions are discovered through `AssistantFoundation\Api\IAssistantResponseExt
 - ClientStack
 - Base3IliasLab for the administration subtab
 
-MathJax uses the library already deployed by ClientStack. The other included capabilities require no external JavaScript library.
+MathJax and Mermaid use libraries already deployed by ClientStack. The other included capabilities require no external JavaScript library.
 
 The plugin is optional. If it is not installed, no response extension is discovered and the Chatbot continues without extension model instructions or browser code.
