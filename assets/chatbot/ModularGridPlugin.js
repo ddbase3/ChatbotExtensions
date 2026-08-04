@@ -36,9 +36,85 @@ function ensureHostStyles(root) {
 .base3-chatbot-grid { max-width: 100%; margin: 1rem 0; }
 .base3-chatbot-grid-title { margin: 0 0 0.65rem; font-size: 1rem; font-weight: 600; }
 .base3-chatbot-grid-host { min-width: 0; max-width: 100%; overflow-x: auto; }
+.base3-chatbot-grid-toolbar { display: flex !important; align-items: center !important; flex-flow: row nowrap !important; gap: 0.45rem !important; width: 100% !important; }
+.base3-chatbot-grid-toolbar > * { flex: 0 0 auto !important; width: auto !important; min-width: 0 !important; margin: 0 !important; }
+.base3-chatbot-grid-toolbar-group { display: flex !important; align-items: center !important; flex-flow: row nowrap !important; gap: 0.3rem !important; width: auto !important; min-width: 0 !important; margin: 0 !important; }
+.base3-chatbot-grid-toolbar label { display: inline-flex !important; align-items: center !important; width: auto !important; min-width: 0 !important; margin: 0 !important; white-space: nowrap !important; }
+.base3-chatbot-grid-toolbar input { flex: 0 1 11rem !important; width: 11rem !important; min-width: 6rem !important; max-width: 11rem !important; margin: 0 !important; }
+.base3-chatbot-grid-toolbar button { flex: 0 0 auto !important; width: auto !important; min-width: 0 !important; margin: 0 !important; padding-inline: 0.5rem !important; white-space: nowrap !important; }
+.base3-chatbot-grid-toolbar select { flex: 0 0 auto !important; width: auto !important; min-width: 3.75rem !important; max-width: 5rem !important; margin: 0 !important; }
+@media (max-width: 640px) {
+	.base3-chatbot-grid-toolbar { align-items: stretch !important; flex-direction: column !important; }
+	.base3-chatbot-grid-toolbar-group { flex-wrap: wrap !important; }
+	.base3-chatbot-grid-toolbar input { flex: 1 1 10rem !important; width: auto !important; max-width: none !important; }
+}
 .base3-chatbot-grid-error { border-inline-start: 0.3rem solid #8b2f2f; border-radius: 0.25rem; padding: 0.85rem 1rem; color: #8b2f2f; background: color-mix(in srgb, currentColor 7%, transparent); white-space: pre-wrap; overflow-wrap: anywhere; }
 `;
 	root.appendChild(style);
+}
+
+
+function addClass(element, className) {
+	if (!element) {
+		return;
+	}
+	if (element.classList && typeof element.classList.add === 'function') {
+		element.classList.add(className);
+		return;
+	}
+
+	const classes = new Set(String(element.className || '').split(/\s+/).filter(Boolean));
+	classes.add(className);
+	element.className = [...classes].join(' ');
+}
+
+function getLabelText(label) {
+	return String(label?.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+function getAncestors(element, boundary) {
+	const ancestors = [];
+	let current = element;
+	while (current && current !== boundary) {
+		ancestors.push(current);
+		current = current.parentElement;
+	}
+	return ancestors;
+}
+
+function findCommonAncestor(first, second, boundary) {
+	const secondAncestors = new Set(getAncestors(second, boundary));
+	return getAncestors(first, boundary).find((element) => secondAncestors.has(element)) || null;
+}
+
+function getToolbarGroup(element, toolbar) {
+	let group = element;
+	while (group?.parentElement && group.parentElement !== toolbar) {
+		group = group.parentElement;
+	}
+	return group;
+}
+
+function compactToolbar(gridHost) {
+	if (!gridHost || typeof gridHost.querySelectorAll !== 'function') {
+		return;
+	}
+
+	const labels = [...gridHost.querySelectorAll('label')];
+	const searchLabel = labels.find((label) => getLabelText(label).startsWith('search'));
+	const pageSizeLabel = labels.find((label) => getLabelText(label).startsWith('rows per page'));
+	if (!searchLabel || !pageSizeLabel) {
+		return;
+	}
+
+	const toolbar = findCommonAncestor(searchLabel, pageSizeLabel, gridHost);
+	if (!toolbar) {
+		return;
+	}
+
+	addClass(toolbar, 'base3-chatbot-grid-toolbar');
+	addClass(getToolbarGroup(searchLabel, toolbar), 'base3-chatbot-grid-toolbar-group');
+	addClass(getToolbarGroup(pageSizeLabel, toolbar), 'base3-chatbot-grid-toolbar-group');
 }
 
 function normalizeResourceUrl(document, value, label) {
@@ -377,6 +453,7 @@ async function renderCodeBlock(context, state, code) {
 
 		const grid = new module.ModularGrid(gridHost, createGridOptions(data, module));
 		await grid.init();
+		compactToolbar(gridHost);
 		if (state.destroyed) {
 			grid.destroy();
 			return;
