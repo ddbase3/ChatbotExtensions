@@ -13,6 +13,7 @@ Included capabilities:
 - timelines
 - accordions and detail sections
 - local CSV and JSON downloads
+- same-origin portal navigation
 - Mermaid diagrams
 - Chart.js charts
 - ModularGrid data tables
@@ -34,6 +35,8 @@ ClientStack owns only the generic Chatbot plugin lifecycle, neutral message-cont
 MathJax-specific Markdown protection is implemented by `assets/chatbot/MathJaxPlugin.js` through the generic `prepareMessageContent` and `finalizeMessageContent` hooks. ClientStack contains no MathJax parser or connector logic.
 
 Structured renderers use dedicated fenced blocks and validate their payloads before creating browser output. They do not execute model-generated JavaScript or HTML.
+
+`RedirectExtension` combines a persistent link renderer with a one-time navigation action. It accepts only a `base3-redirect` JSON block containing a same-origin URL and a plain-text label. Freshly completed assistant messages render the labeled link and navigate once; restored conversation messages render the same clickable link without triggering navigation.
 
 Extensions are discovered through `AssistantFoundation\Api\IAssistantResponseExtension` and activated through the central `chatbot-extensions/default` settings record.
 
