@@ -200,6 +200,27 @@ function renderElement(context, state, element) {
 	});
 }
 
+function markPending(element) {
+	if (!element || typeof element.querySelectorAll !== 'function') {
+		return;
+	}
+	element.querySelectorAll(BLOCK_SELECTOR).forEach((code) => {
+		const container = code.parentElement;
+		if (!container || container.classList.contains('base3-chatbot-extension-pending')) {
+			return;
+		}
+		container.classList.add('base3-chatbot-extension-pending');
+		const document = code.ownerDocument || globalThis.document;
+		const indicator = document.createElement('span');
+		indicator.className = 'base3-chatbot-extension-pending-indicator';
+		indicator.setAttribute('aria-hidden', 'true');
+		const label = document.createElement('span');
+		label.className = 'base3-chatbot-extension-pending-text';
+		label.textContent = 'Inhalt wird erstellt …';
+		container.append(indicator, label);
+	});
+}
+
 function getMessageElement(payload) {
 	return payload?.content || payload?.element || null;
 }
@@ -219,6 +240,11 @@ export const MermaidPlugin = {
 		ensureStyles(context.root);
 
 		state.unsubscribe.push(
+			context.events.on('message:rendered', (payload) => {
+				if (!payload?.error) {
+					markPending(getMessageElement(payload));
+				}
+			}),
 			context.events.on('message:completed', (payload) => {
 				if (!payload?.interaction && !payload?.error) {
 					renderElement(context, state, getMessageElement(payload));

@@ -54,6 +54,7 @@ function ensureStyles(root) {
 .base3-chatbot-download { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border: 1px solid color-mix(in srgb, currentColor 18%, transparent); border-radius: 0.35rem; padding: 0.8rem; }
 .base3-chatbot-download-name { min-width: 0; overflow-wrap: anywhere; font-family: monospace; }
 .base3-chatbot-download-button { flex: 0 0 auto; }
+.base3-chatbot-extension-error { border-inline-start: 0.3rem solid #8b2f2f; padding: 0.75rem 0.9rem; color: #8b2f2f; background: color-mix(in srgb, currentColor 7%, transparent); }
 `;
 	root.appendChild(style);
 }
@@ -90,6 +91,12 @@ function replaceCodeBlocks(context, root, language, renderer) {
 			}
 		}
 		catch (error) {
+			const document = code.ownerDocument || globalThis.document;
+			const replacement = document.createElement('div');
+			replacement.className = 'base3-chatbot-extension-block base3-chatbot-extension-error';
+			replacement.setAttribute('role', 'alert');
+			replacement.textContent = error?.message || String(error);
+			container.replaceWith(replacement);
 			context.events.emit('chatbot:error', error);
 		}
 	});

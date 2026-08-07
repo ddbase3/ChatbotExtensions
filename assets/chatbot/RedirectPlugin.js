@@ -103,6 +103,15 @@ function handleRedirectBlocks(context, state, element, navigate) {
 			}
 		}
 		catch (error) {
+			const container = code.parentElement;
+			if (container && typeof container.replaceWith === 'function') {
+				const document = code.ownerDocument || globalThis.document;
+				const errorElement = document.createElement('div');
+				errorElement.className = 'base3-chatbot-error';
+				errorElement.role = 'alert';
+				errorElement.textContent = error?.message || String(error);
+				container.replaceWith(errorElement);
+			}
 			context.events.emit('chatbot:error', error);
 		}
 	}

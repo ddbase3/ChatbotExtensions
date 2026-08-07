@@ -135,7 +135,8 @@ test('redirect plugin rejects external origins without rendering or navigating',
 	RedirectPlugin.install(setup.context);
 	setup.listeners.get('message:completed')({ content: setup.content, error: false, interaction: false });
 
-	assert.equal(setup.getReplacement(), null);
+	assert.equal(setup.getReplacement()?.className, 'base3-chatbot-error');
+	assert.match(setup.getReplacement()?.textContent || '', /current origin/);
 	assert.equal(setup.getAssignedUrl(), null);
 	assert.equal(setup.errors.length, 1);
 	assert.match(setup.errors[0].message, /current origin/);
@@ -148,7 +149,8 @@ test('redirect plugin requires a non-empty label', () => {
 	RedirectPlugin.install(setup.context);
 	setup.listeners.get('message:completed')({ content: setup.content, error: false, interaction: false });
 
-	assert.equal(setup.getReplacement(), null);
+	assert.equal(setup.getReplacement()?.className, 'base3-chatbot-error');
+	assert.match(setup.getReplacement()?.textContent || '', /non-empty label/);
 	assert.equal(setup.getAssignedUrl(), null);
 	assert.equal(setup.errors.length, 1);
 	assert.match(setup.errors[0].message, /non-empty label/);
@@ -161,7 +163,8 @@ test('redirect plugin rejects additional payload properties', () => {
 	RedirectPlugin.install(setup.context);
 	setup.listeners.get('message:completed')({ content: setup.content, error: false, interaction: false });
 
-	assert.equal(setup.getReplacement(), null);
+	assert.equal(setup.getReplacement()?.className, 'base3-chatbot-error');
+	assert.match(setup.getReplacement()?.textContent || '', /exactly url and label/);
 	assert.equal(setup.getAssignedUrl(), null);
 	assert.equal(setup.errors.length, 1);
 	assert.match(setup.errors[0].message, /exactly url and label/);
