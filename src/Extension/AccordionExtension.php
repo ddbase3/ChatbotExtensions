@@ -31,10 +31,6 @@ final class AccordionExtension extends AbstractStructuredContentExtension {
 		return 'Groups longer explanations into accessible expandable sections.';
 	}
 
-	public function getRequirements(): array {
-		return ['ClientStack Markdown renderer'];
-	}
-
 	public function getPriority(): int {
 		return 150;
 	}
@@ -43,7 +39,7 @@ final class AccordionExtension extends AbstractStructuredContentExtension {
 		return ['Explain installation, configuration, and troubleshooting in separate expandable sections.'];
 	}
 
-	public function getSystemPrompt(array $context): string {
+	protected function getStructuredSystemPrompt(array $context): string {
 		return <<<'PROMPT'
 An active accordion renderer is available in the chat. Users describe the desired presentation in natural language and are not expected to know its technical syntax.
 If the user asks for accordions, expandable sections, collapsible details, grouped detail areas, or any equivalent presentation, you MUST use the renderer. Never return the payload as bare JSON and never place it in a generic `json` code block.
@@ -58,6 +54,10 @@ Do not include HTML or fenced `base3-*` extension blocks inside `markdown`. Spec
 Do not add properties other than `title`, `markdown`, and `open`.
 When the user explicitly requests expandable sections, do not replace them with ordinary headings or lists.
 PROMPT;
+	}
+
+	protected function getBlockIdentifier(): string {
+		return 'base3-accordion';
 	}
 
 	protected function getClientExportName(): string {

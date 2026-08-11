@@ -36,6 +36,8 @@ MathJax-specific Markdown protection is implemented by `assets/chatbot/MathJaxPl
 
 Structured renderers use dedicated fenced blocks and validate their payloads before creating browser output. They do not execute model-generated JavaScript or HTML.
 
+Markdown handling follows one rule across extensions: descriptive content fields are rendered through ClientStack's shared `markdown:render-fragment` command with nested extension blocks disabled, while compact labels, titles, metrics, statuses, table cells, filenames, URLs, and other structural values remain plain text. Markdown-enabled fields are `callout.text`, `kpi.items[].detail`, `timeline.items[].text`, `accordion.items[].markdown`, and `map.points[].description`.
+
 `RedirectExtension` combines a persistent link renderer with a one-time navigation action. It accepts only a `base3-redirect` JSON block containing a same-origin URL and a plain-text label. Freshly completed assistant messages render the labeled link and navigate once; restored conversation messages render the same clickable link without triggering navigation.
 
 Extensions are discovered through `AssistantFoundation\Api\IAssistantResponseExtension` and activated through the central `chatbot-extensions/default` settings record.
@@ -51,7 +53,7 @@ The following extensions use libraries already deployed by ClientStack:
 
 The ModularGrid extension intentionally uses only local array data, plain scalar cells, sorting, optional search, and optional paging. It does not expose Ajax adapters, HTML renderers, actions, export, storage plugins, callbacks, or arbitrary ModularGrid configuration to assistant output.
 
-The Leaflet extension accepts only a title, one of three fixed base-map types, and a list of coordinate points with plain-text labels and descriptions. The available base maps are OpenStreetMap Standard, Esri World Imagery, and OpenTopoMap. The renderer automatically fits the map to all points and does not expose tile URLs, center, zoom, bounds, custom icons, overlays, routes, or arbitrary Leaflet configuration to assistant output.
+The Leaflet extension accepts only a title, one of three fixed base-map types, and a list of coordinate points with plain-text labels and Markdown-enabled descriptions. The available base maps are OpenStreetMap Standard, Esri World Imagery, and OpenTopoMap. The renderer automatically fits the map to all points and does not expose tile URLs, center, zoom, bounds, custom icons, overlays, routes, or arbitrary Leaflet configuration to assistant output.
 
 ## Dependencies
 

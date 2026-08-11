@@ -59,6 +59,8 @@ function ensureStyles(root) {
 .base3-chatbot-map-host .leaflet-popup-content { overflow-wrap: anywhere; }
 .base3-chatbot-map-popup-title { display: block; margin-bottom: 0.25rem; }
 .base3-chatbot-map-popup-description { margin: 0; }
+.base3-chatbot-map-popup-description > :first-child { margin-top: 0; }
+.base3-chatbot-map-popup-description > :last-child { margin-bottom: 0; }
 .base3-chatbot-map-error { border-inline-start: 0.3rem solid #8b2f2f; border-radius: 0.25rem; padding: 0.85rem 1rem; color: #8b2f2f; background: color-mix(in srgb, currentColor 7%, transparent); white-space: pre-wrap; overflow-wrap: anywhere; }
 `;
 	root.appendChild(style);
@@ -212,6 +214,21 @@ function normalizeText(value, label, maximumLength, required = false) {
 	return text;
 }
 
+function normalizeMarkdown(value, label, maximumLength) {
+	if (value === undefined || value === null) {
+		return '';
+	}
+	if (typeof value !== 'string') {
+		throw new Error(`${label} must be Markdown text.`);
+	}
+
+	const markdown = value.trim();
+	if (markdown.length > maximumLength) {
+		throw new Error(`${label} must not exceed ${maximumLength} characters.`);
+	}
+	return markdown;
+}
+
 function normalizeCoordinate(value, label, minimum, maximum) {
 	if (typeof value !== 'number' || !Number.isFinite(value)) {
 		throw new Error(`${label} must be a finite number.`);
@@ -247,7 +264,7 @@ function normalizePoints(value) {
 			lat: normalizeCoordinate(point.lat, `Map point ${index + 1} lat`, -90, 90),
 			lng: normalizeCoordinate(point.lng, `Map point ${index + 1} lng`, -180, 180),
 			label: normalizeText(point.label, `Map point ${index + 1} label`, 120, true),
-			description: normalizeText(point.description, `Map point ${index + 1} description`, 500)
+			description: normalizeMarkdown(point.description, `Map point ${index + 1} description`, 500)
 		};
 	});
 }
@@ -291,7 +308,7 @@ function createBaseLayers(leaflet) {
 	return { byType, byLabel };
 }
 
-function createPopup(document, point) {
+function createPopup(document, point, context) {
 	const popup = document.createElement('div');
 	const title = document.createElement('strong');
 	title.className = 'base3-chatbot-map-popup-title';
@@ -299,9 +316,13 @@ function createPopup(document, point) {
 	popup.appendChild(title);
 
 	if (point.description) {
-		const description = document.createElement('p');
+		const description = document.createElement('div');
 		description.className = 'base3-chatbot-map-popup-description';
-		description.textContent = point.description;
+		description.appendChild(context.commands.execute('markdown:render-fragment', {
+			markdown: point.description,
+			document,
+			allowExtensionBlocks: false
+		}));
 		popup.appendChild(description);
 	}
 
@@ -399,7 +420,7 @@ async function renderCodeBlock(context, state, code) {
 		for (const point of data.points) {
 			const marker = leaflet.marker([point.lat, point.lng]).addTo(map);
 			marker.bindTooltip(createTooltip(document, point));
-			marker.bindPopup(createPopup(document, point));
+			marker.bindPopup(createPopup(document, point, context));
 		}
 
 		fitMapToPoints(map, leaflet, data.points);

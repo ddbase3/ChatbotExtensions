@@ -39,7 +39,7 @@ final class ProgressExtension extends AbstractStructuredContentExtension {
 		return ['Show the completion of Analysis 80%, Implementation 55%, and Testing 25% as progress indicators.'];
 	}
 
-	public function getSystemPrompt(array $context): string {
+	protected function getStructuredSystemPrompt(array $context): string {
 		return <<<'PROMPT'
 An active progress-indicator renderer is available in the chat. Users describe the desired presentation in natural language and are not expected to know its technical syntax.
 If the user asks for progress bars, progress indicators, completion bars, status bars, or any equivalent bounded progress visualization, you MUST use the renderer. Never return the payload as bare JSON and never place it in a generic `json` code block.
@@ -52,6 +52,10 @@ The opening fence, the exact identifier `base3-progress`, the JSON object, and t
 Do not include HTML, Markdown, nested code fences, or additional properties inside the JSON.
 When the user explicitly requests a progress visualization, do not replace it with ordinary percentages in prose.
 PROMPT;
+	}
+
+	protected function getBlockIdentifier(): string {
+		return 'base3-progress';
 	}
 
 	protected function getClientExportName(): string {

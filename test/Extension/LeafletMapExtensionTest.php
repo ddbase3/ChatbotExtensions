@@ -22,6 +22,8 @@ final class LeafletMapExtensionTest extends TestCase {
 		$this->assertStringContainsString('`street`, `satellite`, or `topographic`', $prompt);
 		$this->assertStringContainsString('automatically determines the center and map bounds', $prompt);
 		$this->assertStringContainsString('Do not include center, zoom, bounds', $prompt);
+		$this->assertStringContainsString('optional `description` is short Markdown content', $prompt);
+		$this->assertStringContainsString('Markdown is allowed only inside `description`', $prompt);
 		$this->assertNotNull($plugin);
 		$this->assertSame('maps', $plugin->getName());
 		$this->assertSame('LeafletMapPlugin', $plugin->getExportName());

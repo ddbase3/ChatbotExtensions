@@ -27,6 +27,8 @@ function ensureStyles(root) {
 .base3-chatbot-extension-block { margin: 1rem 0; }
 .base3-chatbot-callout { border-inline-start: 0.3rem solid currentColor; border-radius: 0.25rem; padding: 0.85rem 1rem; background: color-mix(in srgb, currentColor 7%, transparent); }
 .base3-chatbot-callout-title { display: block; margin-bottom: 0.3rem; font-weight: 700; }
+.base3-chatbot-callout-text > :first-child { margin-top: 0; }
+.base3-chatbot-callout-text > :last-child { margin-bottom: 0; }
 .base3-chatbot-callout-info { color: #245b8a; }
 .base3-chatbot-callout-success { color: #276738; }
 .base3-chatbot-callout-warning { color: #765500; }
@@ -34,6 +36,8 @@ function ensureStyles(root) {
 .base3-chatbot-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: 0.75rem; }
 .base3-chatbot-kpi-card { min-width: 0; border: 1px solid color-mix(in srgb, currentColor 18%, transparent); border-radius: 0.35rem; padding: 0.85rem; }
 .base3-chatbot-kpi-label, .base3-chatbot-kpi-detail { display: block; overflow-wrap: anywhere; }
+.base3-chatbot-kpi-detail > :first-child { margin-top: 0; }
+.base3-chatbot-kpi-detail > :last-child { margin-bottom: 0; }
 .base3-chatbot-kpi-value { display: block; margin: 0.2rem 0; font-size: 1.45rem; font-weight: 700; overflow-wrap: anywhere; }
 .base3-chatbot-kpi-change { display: inline-block; margin-top: 0.25rem; font-weight: 600; }
 .base3-chatbot-progress-list { display: grid; gap: 0.75rem; }
@@ -45,6 +49,8 @@ function ensureStyles(root) {
 .base3-chatbot-timeline-item:last-child { padding-bottom: 0; }
 .base3-chatbot-timeline-date { display: block; font-size: 0.88rem; opacity: 0.75; }
 .base3-chatbot-timeline-title { display: block; margin: 0.1rem 0; font-weight: 700; }
+.base3-chatbot-timeline-text > :first-child { margin-top: 0; }
+.base3-chatbot-timeline-text > :last-child { margin-bottom: 0; }
 .base3-chatbot-accordion { display: grid; gap: 0.5rem; }
 .base3-chatbot-accordion details { border: 1px solid color-mix(in srgb, currentColor 18%, transparent); border-radius: 0.35rem; padding: 0.65rem 0.8rem; }
 .base3-chatbot-accordion summary { cursor: pointer; font-weight: 700; }
@@ -143,7 +149,17 @@ function createStructuredPlugin(name, language, renderer) {
 	};
 }
 
-function renderCallout(document, data) {
+function createMarkdownContent(document, context, className, markdown) {
+	const content = createElement(document, 'div', className);
+	content.appendChild(context.commands.execute('markdown:render-fragment', {
+		markdown,
+		document,
+		allowExtensionBlocks: false
+	}));
+	return content;
+}
+
+function renderCallout(document, data, context) {
 	const type = ['info', 'success', 'warning', 'error'].includes(data.type) ? data.type : 'info';
 	const text = String(data.text || '').trim();
 	if (!text) {
@@ -155,7 +171,7 @@ function renderCallout(document, data) {
 	if (title) {
 		block.appendChild(createElement(document, 'strong', 'base3-chatbot-callout-title', title));
 	}
-	block.appendChild(createElement(document, 'div', 'base3-chatbot-callout-text', text));
+	block.appendChild(createMarkdownContent(document, context, 'base3-chatbot-callout-text', text));
 	return block;
 }
 
@@ -166,7 +182,7 @@ function getItems(data, minimum, maximum, label) {
 	return data.items;
 }
 
-function renderKpiCards(document, data) {
+function renderKpiCards(document, data, context) {
 	const grid = createElement(document, 'section', 'base3-chatbot-extension-block base3-chatbot-kpi-grid');
 	getItems(data, 1, 6, 'KPI cards').forEach((item) => {
 		const label = String(item?.label || '').trim();
@@ -184,7 +200,7 @@ function renderKpiCards(document, data) {
 			card.appendChild(createElement(document, 'span', 'base3-chatbot-kpi-change', change));
 		}
 		if (detail) {
-			card.appendChild(createElement(document, 'span', 'base3-chatbot-kpi-detail', detail));
+			card.appendChild(createMarkdownContent(document, context, 'base3-chatbot-kpi-detail', detail));
 		}
 		grid.appendChild(card);
 	});
@@ -215,7 +231,7 @@ function renderProgress(document, data) {
 	return list;
 }
 
-function renderTimeline(document, data) {
+function renderTimeline(document, data, context) {
 	const list = createElement(document, 'ol', 'base3-chatbot-extension-block base3-chatbot-timeline');
 	getItems(data, 1, 12, 'Timeline').forEach((item) => {
 		const title = String(item?.title || '').trim();
@@ -231,7 +247,7 @@ function renderTimeline(document, data) {
 		}
 		row.appendChild(createElement(document, 'strong', 'base3-chatbot-timeline-title', title));
 		if (text) {
-			row.appendChild(createElement(document, 'div', 'base3-chatbot-timeline-text', text));
+			row.appendChild(createMarkdownContent(document, context, 'base3-chatbot-timeline-text', text));
 		}
 		list.appendChild(row);
 	});
@@ -250,12 +266,7 @@ function renderAccordion(document, data, context) {
 		const details = createElement(document, 'details');
 		details.open = item.open === true;
 		details.appendChild(createElement(document, 'summary', '', title));
-		const content = createElement(document, 'div', 'base3-chatbot-accordion-content');
-		content.appendChild(context.commands.execute('markdown:render-fragment', {
-			markdown,
-			document,
-			allowExtensionBlocks: false
-		}));
+		const content = createMarkdownContent(document, context, 'base3-chatbot-accordion-content', markdown);
 		details.appendChild(content);
 		list.appendChild(details);
 	});

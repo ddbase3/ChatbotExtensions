@@ -209,6 +209,7 @@ function createContext(leaflet) {
 	const root = new FakeElement('section', document);
 	const events = new EventBus();
 	const errors = [];
+	const commands = [];
 	const originalEmit = events.emit.bind(events);
 	events.emit = (name, payload) => {
 		if (name === 'chatbot:error') {
@@ -222,10 +223,17 @@ function createContext(leaflet) {
 		root,
 		events,
 		errors,
+		commands,
 		context: {
 			chatbot: {},
 			root,
 			events,
+			commands: {
+				execute(name, payload) {
+					commands.push({ name, payload });
+					return new FakeElement('fragment', document);
+				}
+			},
 			getPluginOptions() {
 				return {
 					scriptUrl: '/assets/leaflet/leaflet.js',
@@ -252,7 +260,7 @@ test('leaflet map plugin renders multiple points with fixed satellite tiles and 
 		title: 'Field locations',
 		map_type: 'satellite',
 		points: [
-			{ lat: 52.52, lng: 13.405, label: 'Berlin', description: '<b>Plain text</b>' },
+			{ lat: 52.52, lng: 13.405, label: 'Berlin', description: '**Capital** of Germany\n\n- Government district' },
 			{ lat: 48.137, lng: 11.575, label: 'Munich', description: 'Second location' }
 		]
 	});
@@ -287,8 +295,12 @@ test('leaflet map plugin renders multiple points with fixed satellite tiles and 
 	const firstMarker = map.markers[0];
 	assert.equal(firstMarker.tooltip.textContent, 'Berlin');
 	assert.equal(firstMarker.popup.children[0].textContent, 'Berlin');
-	assert.equal(firstMarker.popup.children[1].textContent, '<b>Plain text</b>');
-	assert.equal(firstMarker.popup.children[1].children.length, 0);
+	assert.equal(firstMarker.popup.children[1].className, 'base3-chatbot-map-popup-description');
+	assert.equal(firstMarker.popup.children[1].children[0].tagName, 'FRAGMENT');
+	assert.equal(setup.commands.length, 2);
+	assert.equal(setup.commands[0].name, 'markdown:render-fragment');
+	assert.equal(setup.commands[0].payload.markdown, '**Capital** of Germany\n\n- Government district');
+	assert.equal(setup.commands[0].payload.allowExtensionBlocks, false);
 
 	assert.ok(block.container.replacement);
 	assert.equal(block.container.replacement.className, 'base3-chatbot-map');

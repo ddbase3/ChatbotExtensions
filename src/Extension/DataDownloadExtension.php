@@ -39,7 +39,7 @@ final class DataDownloadExtension extends AbstractStructuredContentExtension {
 		return ['Create a downloadable CSV file with the columns name, status, and due_date from the following tasks.'];
 	}
 
-	public function getSystemPrompt(array $context): string {
+	protected function getStructuredSystemPrompt(array $context): string {
 		return <<<'PROMPT'
 An active local data-download renderer is available in the chat. Users describe the desired result in natural language and are not expected to know its technical syntax.
 If the user asks for a downloadable CSV file, downloadable JSON file, export, or download button for generated data, you MUST use the renderer. Never return the payload as bare JSON and never place it in a generic `json` code block.
@@ -56,6 +56,10 @@ Allowed formats are `csv` and `json`. `filename`, `format`, and `content` are re
 The browser creates the file locally from this payload. Do not include remote URLs, HTML, JavaScript, Markdown, nested code fences, or additional properties.
 When the user explicitly requests a downloadable file, do not replace it with a normal code block or plain-text data.
 PROMPT;
+	}
+
+	protected function getBlockIdentifier(): string {
+		return 'base3-download';
 	}
 
 	protected function getClientExportName(): string {

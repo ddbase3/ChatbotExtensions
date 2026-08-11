@@ -39,19 +39,24 @@ final class CalloutExtension extends AbstractStructuredContentExtension {
 		return ['Summarize the key result and show the most important warning as a callout.'];
 	}
 
-	public function getSystemPrompt(array $context): string {
+	protected function getStructuredSystemPrompt(array $context): string {
 		return <<<'PROMPT'
 An active callout renderer is available in the chat. Users describe the desired presentation in natural language and are not expected to know its technical syntax.
 If the user asks for a warning box, notice, alert, information box, success box, error box, callout, or any equivalent presentation, you MUST use the renderer. Never return the payload as bare JSON and never place it in a generic `json` code block.
 The complete output must use the exact fenced block identifier `base3-callout`:
 ```base3-callout
-{"type":"info","title":"Optional title","text":"Plain text content"}
+{"type":"info","title":"Optional title","text":"Use **Markdown** for the content.\n\n- First point\n- Second point"}
 ```
 The opening fence, the exact identifier `base3-callout`, the JSON object, and the closing fence are all mandatory.
 Allowed types are `info`, `success`, `warning`, and `error`.
-Keep `title` and `text` as plain text. Do not include HTML, Markdown, nested code fences, or additional properties inside the JSON.
+`title` must remain plain text. `text` is Markdown content and may use paragraphs, emphasis, links, inline code, headings, ordered lists, and unordered lists. Encode line breaks inside the JSON string with `\n`.
+Do not include HTML or fenced `base3-*` extension blocks inside `text`. Do not add properties other than `type`, `title`, and `text`.
 Use normal prose outside the block when useful. When the user explicitly requests this presentation, do not replace it with ordinary prose.
 PROMPT;
+	}
+
+	protected function getBlockIdentifier(): string {
+		return 'base3-callout';
 	}
 
 	protected function getClientExportName(): string {

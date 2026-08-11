@@ -39,19 +39,24 @@ final class TimelineExtension extends AbstractStructuredContentExtension {
 		return ['Turn the project phases discovery, prototype, pilot, and rollout into a concise timeline.'];
 	}
 
-	public function getSystemPrompt(array $context): string {
+	protected function getStructuredSystemPrompt(array $context): string {
 		return <<<'PROMPT'
 An active timeline renderer is available in the chat. Users describe the desired presentation in natural language and are not expected to know its technical syntax.
 If the user asks for a timeline, chronology, roadmap, milestone sequence, project phases, or any equivalent chronological presentation, you MUST use the renderer. Never return the payload as bare JSON and never place it in a generic `json` code block.
 The complete output must use the exact fenced block identifier `base3-timeline`:
 ```base3-timeline
-{"items":[{"date":"Q1 2026","title":"Prototype","text":"Build and validate the first working version.","status":"completed"}]}
+{"items":[{"date":"Q1 2026","title":"Prototype","text":"Build and validate the first working version.\n\n- Internal pilot\n- Feedback round","status":"completed"}]}
 ```
 The opening fence, the exact identifier `base3-timeline`, the JSON object, and the closing fence are all mandatory.
-`items` must contain between 1 and 12 entries. `title` is required. `date`, `text`, and `status` are optional plain text. Allowed status values are `completed`, `current`, `planned`, and `neutral`.
-Preserve the intended order in the JSON array. Do not include HTML, Markdown, nested code fences, or additional properties.
+`items` must contain between 1 and 12 entries. `title` is required plain text. `date` and `status` are optional plain text. `text` is optional Markdown for the milestone description. Allowed status values are `completed`, `current`, `planned`, and `neutral`.
+Use Markdown inside `text` for paragraphs, emphasis, links, inline code, ordered lists, and unordered lists. Encode line breaks inside the JSON string with `\n`.
+Preserve the intended order in the JSON array. Do not include HTML or fenced `base3-*` extension blocks inside `text`. Do not add properties other than `date`, `title`, `text`, and `status`.
 When the user explicitly requests a timeline or roadmap, do not replace it with an ordinary list.
 PROMPT;
+	}
+
+	protected function getBlockIdentifier(): string {
+		return 'base3-timeline';
 	}
 
 	protected function getClientExportName(): string {

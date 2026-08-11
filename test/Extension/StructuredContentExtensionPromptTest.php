@@ -19,22 +19,54 @@ final class StructuredContentExtensionPromptTest extends TestCase {
 		object $extension,
 		string $fence
 	): void {
-		$prompt = $extension->getSystemPrompt([]);
+		$prompt = $extension->getSystemPrompt(['use_markdown' => true]);
 
 		$this->assertStringContainsString('Users describe the desired', $prompt);
 		$this->assertStringContainsString('you MUST use the renderer', $prompt);
 		$this->assertStringContainsString('Never return the payload as bare JSON', $prompt);
 		$this->assertStringContainsString('```' . $fence, $prompt);
 		$this->assertStringContainsString('exact identifier `' . $fence . '`', $prompt);
+		$this->assertContains('ClientStack Markdown renderer', $extension->getRequirements());
 	}
 
-	public function testAccordionPromptDefinesMarkdownContentWithoutNestedExtensions(): void {
-		$extension = new AccordionExtension(new StructuredContentPromptAssetResolver());
-		$prompt = $extension->getSystemPrompt([]);
+	#[DataProvider('extensionProvider')]
+	public function testPromptDisablesStructuredBlocksWhenMarkdownIsUnavailable(
+		object $extension,
+		string $fence
+	): void {
+		$prompt = $extension->getSystemPrompt(['use_markdown' => false]);
 
-		$this->assertStringContainsString('"markdown"', $prompt);
-		$this->assertStringContainsString('Use Markdown inside `markdown`', $prompt);
-		$this->assertStringContainsString('Do not include HTML or fenced `base3-*` extension blocks', $prompt);
+		$this->assertStringContainsString('Markdown rendering is disabled', $prompt);
+		$this->assertStringContainsString('Do not emit ' . $fence . ' blocks', $prompt);
+	}
+
+	public function testContentExtensionsDefineMarkdownFieldsWithoutNestedExtensions(): void {
+		$resolver = new StructuredContentPromptAssetResolver();
+		$prompts = [
+			'callout' => (new CalloutExtension($resolver))->getSystemPrompt(['use_markdown' => true]),
+			'kpi' => (new KpiCardsExtension($resolver))->getSystemPrompt(['use_markdown' => true]),
+			'timeline' => (new TimelineExtension($resolver))->getSystemPrompt(['use_markdown' => true]),
+			'accordion' => (new AccordionExtension($resolver))->getSystemPrompt(['use_markdown' => true])
+		];
+
+		$this->assertStringContainsString('`text` is Markdown content', $prompts['callout']);
+		$this->assertStringContainsString('`detail` is optional Markdown', $prompts['kpi']);
+		$this->assertStringContainsString('`text` is optional Markdown', $prompts['timeline']);
+		$this->assertStringContainsString('Use Markdown inside `markdown`', $prompts['accordion']);
+
+		foreach ($prompts as $prompt) {
+			$this->assertStringContainsString('fenced `base3-*` extension blocks', $prompt);
+		}
+	}
+
+	public function testCompactAndDownloadPayloadsRemainPlainStructuredData(): void {
+		$resolver = new StructuredContentPromptAssetResolver();
+		$progressPrompt = (new ProgressExtension($resolver))->getSystemPrompt(['use_markdown' => true]);
+		$downloadPrompt = (new DataDownloadExtension($resolver))->getSystemPrompt(['use_markdown' => true]);
+
+		$this->assertStringContainsString('`text` is optional plain text', $progressPrompt);
+		$this->assertStringContainsString('Do not include HTML, Markdown', $progressPrompt);
+		$this->assertStringContainsString('Do not include remote URLs, HTML, JavaScript, Markdown', $downloadPrompt);
 	}
 
 	/** @return array<string,array{0:object,1:string}> */

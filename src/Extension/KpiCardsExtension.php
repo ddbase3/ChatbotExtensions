@@ -39,19 +39,23 @@ final class KpiCardsExtension extends AbstractStructuredContentExtension {
 		return ['Present these reporting figures as KPI cards: 1,240 users, 68% completion, and 4.7/5 satisfaction.'];
 	}
 
-	public function getSystemPrompt(array $context): string {
+	protected function getStructuredSystemPrompt(array $context): string {
 		return <<<'PROMPT'
 An active KPI-card renderer is available in the chat. Users describe the desired presentation in natural language and are not expected to know its technical syntax.
 If the user asks for KPI cards, metric cards, key-figure tiles, dashboard figures, or any equivalent card presentation, you MUST use the renderer. Never return the payload as bare JSON and never place it in a generic `json` code block.
 The complete output must use the exact fenced block identifier `base3-kpi`:
 ```base3-kpi
-{"items":[{"label":"Active users","value":"1,240","change":"+8%","detail":"Compared with last month"}]}
+{"items":[{"label":"Active users","value":"1,240","change":"+8%","detail":"Compared with **last month**"}]}
 ```
 The opening fence, the exact identifier `base3-kpi`, the JSON object, and the closing fence are all mandatory.
-`items` must contain between 1 and 6 entries. Every entry requires `label` and `value`; `change` and `detail` are optional plain text.
-Do not include HTML, Markdown, nested code fences, or additional properties inside the JSON.
+`items` must contain between 1 and 6 entries. Every entry requires plain-text `label` and `value`; `change` is optional plain text. `detail` is optional Markdown for a short explanatory note.
+Use Markdown in `detail` for emphasis, links, inline code, or short ordered and unordered lists when useful. Encode line breaks inside the JSON string with `\n`. Do not include HTML or fenced `base3-*` extension blocks inside `detail`. Do not add properties other than `label`, `value`, `change`, and `detail`.
 When the user explicitly requests cards or tiles, do not replace them with a Markdown table or ordinary list.
 PROMPT;
+	}
+
+	protected function getBlockIdentifier(): string {
+		return 'base3-kpi';
 	}
 
 	protected function getClientExportName(): string {
