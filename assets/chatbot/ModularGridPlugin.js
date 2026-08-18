@@ -423,11 +423,15 @@ function createGridOptions(data, module, options) {
 	};
 }
 
-function createErrorElement(document, options) {
+function createErrorElement(document, error, options) {
 	const element = document.createElement('div');
 	element.className = 'base3-chatbot-grid base3-chatbot-grid-error';
 	element.setAttribute('role', 'alert');
-	element.textContent = getString(options, 'renderError', 'Table could not be rendered.');
+
+	const prefix = getString(options, 'renderError', 'Table could not be rendered.');
+	const message = String(error?.message || error || '').trim();
+	element.textContent = message ? `${prefix} ${message}` : prefix;
+
 	return element;
 }
 
@@ -482,7 +486,7 @@ async function renderCodeBlock(context, state, code) {
 		if (state.destroyed) {
 			return;
 		}
-		const errorElement = createErrorElement(document, state.options);
+		const errorElement = createErrorElement(document, error, state.options);
 		if (host && typeof host.replaceWith === 'function') {
 			host.replaceWith(errorElement);
 		}

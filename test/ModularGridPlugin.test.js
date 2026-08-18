@@ -287,8 +287,8 @@ test('modular grid plugin rejects undeclared row keys and nested cell values', a
 	await flushAsyncWork();
 
 	assert.equal(fixtureModule.instances.length, 0);
-	assert.equal(undeclared.container.replacement.textContent, 'Table could not be rendered.');
-	assert.equal(nested.container.replacement.textContent, 'Table could not be rendered.');
+	assert.match(undeclared.container.replacement.textContent, /^Table could not be rendered\. .*undeclared column \"hidden\"/);
+	assert.match(nested.container.replacement.textContent, /^Table could not be rendered\. .*plain text, a finite number, boolean, or null/);
 	assert.equal(setup.errors.length, 2);
 	assert.match(setup.errors[0].message, /undeclared column "hidden"/);
 	assert.match(setup.errors[1].message, /plain text, a finite number, boolean, or null/);
@@ -318,8 +318,8 @@ test('modular grid plugin rejects unsupported properties and invalid page sizes'
 	await flushAsyncWork();
 
 	assert.equal(fixtureModule.instances.length, 0);
-	assert.equal(unsupported.container.replacement.textContent, 'Table could not be rendered.');
-	assert.equal(pageSize.container.replacement.textContent, 'Table could not be rendered.');
+	assert.match(unsupported.container.replacement.textContent, /^Table could not be rendered\. .*unsupported property \"render\"/);
+	assert.match(pageSize.container.replacement.textContent, /^Table could not be rendered\. .*must be 5, 10, 20, or 50/);
 	assert.equal(setup.errors.length, 2);
 	assert.match(setup.errors[0].message, /unsupported property "render"/);
 	assert.match(setup.errors[1].message, /must be 5, 10, 20, or 50/);
