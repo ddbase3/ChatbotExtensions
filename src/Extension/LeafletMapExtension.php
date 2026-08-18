@@ -86,7 +86,14 @@ PROMPT;
 				),
 				'styleUrl' => $this->assetResolver->resolve(
 					'plugin/ClientStack/assets/leaflet/leaflet.css'
-				)
+				),
+				'strings' => array_merge($this->getClientStrings($context), [
+					'renderError' => $this->getClientTranslation($context, 'client_map_error', 'Map could not be rendered.'),
+					'aria' => $this->getClientTranslation($context, 'client_map_aria', 'Interactive map'),
+					'street' => $this->getClientTranslation($context, 'client_map_street', 'Street map'),
+					'satellite' => $this->getClientTranslation($context, 'client_map_satellite', 'Satellite imagery'),
+					'topographic' => $this->getClientTranslation($context, 'client_map_topographic', 'Topographic map')
+				])
 			]
 		);
 	}

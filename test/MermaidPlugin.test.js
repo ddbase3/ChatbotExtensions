@@ -246,7 +246,7 @@ test('mermaid plugin shows parser errors inside the message', async () => {
 
 	assert.ok(block.container.replacement);
 	assert.match(block.container.replacement.className, /base3-chatbot-mermaid-error/);
-	assert.equal(block.container.replacement.textContent, 'Mermaid error: Parse error on line 2');
+	assert.equal(block.container.replacement.textContent, 'Diagram could not be rendered.');
 	assert.deepEqual(setup.errors, [parseError]);
 
 	MermaidPlugin.destroy(setup.context);

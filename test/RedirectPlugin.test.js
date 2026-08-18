@@ -16,7 +16,7 @@ function createElement(tagName) {
 	};
 }
 
-function createSetup(payload, currentUrl = 'https://portal.example/current') {
+function createSetup(payload, currentUrl = 'https://portal.example/current', pluginOptions = {}) {
 	const listeners = new Map();
 	const errors = [];
 	let assignedUrl = null;
@@ -50,6 +50,9 @@ function createSetup(payload, currentUrl = 'https://portal.example/current') {
 	};
 	const context = {
 		chatbot: {},
+		getPluginOptions() {
+			return pluginOptions;
+		},
 		events: {
 			on(name, listener) {
 				listeners.set(name, listener);
@@ -136,8 +139,24 @@ test('redirect plugin rejects external origins without rendering or navigating',
 	setup.listeners.get('message:completed')({ content: setup.content, error: false, interaction: false });
 
 	assert.equal(setup.getReplacement()?.className, 'base3-chatbot-error');
-	assert.match(setup.getReplacement()?.textContent || '', /current origin/);
+	assert.equal(setup.getReplacement()?.textContent, 'Navigation could not be completed.');
 	assert.equal(setup.getAssignedUrl(), null);
+	assert.equal(setup.errors.length, 1);
+	assert.match(setup.errors[0].message, /current origin/);
+	RedirectPlugin.destroy(setup.context);
+});
+
+test('redirect plugin uses configured localized error text', () => {
+	const setup = createSetup(
+		{ url: 'https://example.org/phishing', label: 'External page' },
+		'https://portal.example/current',
+		{ strings: { renderError: 'Navigation nicht möglich.' } }
+	);
+
+	RedirectPlugin.install(setup.context);
+	setup.listeners.get('message:completed')({ content: setup.content, error: false, interaction: false });
+
+	assert.equal(setup.getReplacement()?.textContent, 'Navigation nicht möglich.');
 	assert.equal(setup.errors.length, 1);
 	assert.match(setup.errors[0].message, /current origin/);
 	RedirectPlugin.destroy(setup.context);
@@ -150,7 +169,7 @@ test('redirect plugin requires a non-empty label', () => {
 	setup.listeners.get('message:completed')({ content: setup.content, error: false, interaction: false });
 
 	assert.equal(setup.getReplacement()?.className, 'base3-chatbot-error');
-	assert.match(setup.getReplacement()?.textContent || '', /non-empty label/);
+	assert.equal(setup.getReplacement()?.textContent, 'Navigation could not be completed.');
 	assert.equal(setup.getAssignedUrl(), null);
 	assert.equal(setup.errors.length, 1);
 	assert.match(setup.errors[0].message, /non-empty label/);
@@ -164,7 +183,7 @@ test('redirect plugin rejects additional payload properties', () => {
 	setup.listeners.get('message:completed')({ content: setup.content, error: false, interaction: false });
 
 	assert.equal(setup.getReplacement()?.className, 'base3-chatbot-error');
-	assert.match(setup.getReplacement()?.textContent || '', /exactly url and label/);
+	assert.equal(setup.getReplacement()?.textContent, 'Navigation could not be completed.');
 	assert.equal(setup.getAssignedUrl(), null);
 	assert.equal(setup.errors.length, 1);
 	assert.match(setup.errors[0].message, /exactly url and label/);

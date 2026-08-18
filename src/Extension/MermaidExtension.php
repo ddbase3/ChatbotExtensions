@@ -83,7 +83,12 @@ PROMPT;
 			[
 				'scriptUrl' => $this->assetResolver->resolve(
 					'plugin/ClientStack/assets/mermaid/mermaid.min.js'
-				)
+				),
+				'strings' => array_merge($this->getClientStrings($context), [
+					'renderError' => $this->getClientTranslation($context, 'client_mermaid_error', 'Diagram could not be rendered.'),
+					'aria' => $this->getClientTranslation($context, 'client_mermaid_aria', 'Mermaid diagram'),
+					'loading' => $this->getClientTranslation($context, 'client_mermaid_loading', 'Content is being created...')
+				])
 			]
 		);
 	}

@@ -82,7 +82,11 @@ PROMPT;
 			[
 				'scriptUrl' => $this->assetResolver->resolve(
 					'plugin/ClientStack/assets/chart/chart.js'
-				)
+				),
+				'strings' => array_merge($this->getClientStrings($context), [
+					'renderError' => $this->getClientTranslation($context, 'client_chart_error', 'Chart could not be rendered.'),
+					'ariaTemplate' => $this->getClientTranslation($context, 'client_chart_aria', '{type} chart')
+				])
 			]
 		);
 	}

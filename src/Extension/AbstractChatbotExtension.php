@@ -34,6 +34,42 @@ abstract class AbstractChatbotExtension implements IAssistantResponseExtension, 
 		return [];
 	}
 
+
+	/** @return array<string,string> */
+	protected function getClientStrings(array $context): array {
+		return [
+			'renderError' => $this->getClientTranslation($context, 'client_render_error', 'Content could not be rendered.')
+		];
+	}
+
+	protected function getClientTranslation(array $context, string $key, string $fallback): string {
+		$language = strtolower(str_replace('_', '-', trim((string)($context['language'] ?? 'en'))));
+		$language = explode('-', $language)[0] ?? 'en';
+		if (!in_array($language, ['ar', 'bg', 'de', 'en', 'es', 'fr', 'hi', 'it', 'pl', 'pt', 'ru', 'zh'], true)) {
+			$language = 'en';
+		}
+
+		$basePath = defined('DIR_PLUGIN') ? DIR_PLUGIN . 'ChatbotExtensions/lang/Administration/' : '';
+		$files = $basePath === ''
+			? []
+			: array_values(array_unique([$basePath . $language . '.ini', $basePath . 'en.ini']));
+		foreach ($files as $filename) {
+			if (!is_file($filename) || !is_readable($filename)) {
+				continue;
+			}
+			$data = parse_ini_file($filename, true);
+			$section = is_array($data['chatbot_extensions_administration'] ?? null)
+				? $data['chatbot_extensions_administration']
+				: [];
+			$value = $section[$key] ?? null;
+			if (is_scalar($value) && trim((string)$value) !== '') {
+				return trim((string)$value);
+			}
+		}
+
+		return $fallback;
+	}
+
 	protected function resolveVersionedAsset(string $logicalPath): string {
 		$url = $this->assetResolver->resolve($logicalPath);
 		$prefix = 'plugin/ChatbotExtensions/';

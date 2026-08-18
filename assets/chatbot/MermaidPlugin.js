@@ -10,6 +10,14 @@ function getDocument(context) {
 	return context.root?.ownerDocument || globalThis.document;
 }
 
+function getString(options, key, fallback, replacements = {}) {
+	let value = String(options?.strings?.[key] ?? fallback);
+	for (const [name, replacement] of Object.entries(replacements)) {
+		value = value.split(`{${name}}`).join(String(replacement));
+	}
+	return value;
+}
+
 function ensureStyles(root) {
 	if (!root || typeof root.querySelector !== 'function' || root.querySelector(`style[${STYLE_ATTRIBUTE}]`)) {
 		return;
@@ -129,11 +137,11 @@ function enqueueRender(task) {
 	return result;
 }
 
-function createErrorElement(document, error) {
+function createErrorElement(document, options) {
 	const element = document.createElement('div');
 	element.className = 'base3-chatbot-mermaid base3-chatbot-mermaid-error';
 	element.setAttribute('role', 'alert');
-	element.textContent = `Mermaid error: ${error?.message || error}`;
+	element.textContent = getString(options, 'renderError', 'Diagram could not be rendered.');
 	return element;
 }
 
@@ -174,7 +182,7 @@ async function renderCodeBlock(context, state, code) {
 		const host = document.createElement('div');
 		host.className = 'base3-chatbot-mermaid';
 		host.setAttribute('role', 'img');
-		host.setAttribute('aria-label', 'Mermaid diagram');
+		host.setAttribute('aria-label', getString(state.options, 'aria', 'Mermaid diagram'));
 		host.innerHTML = svg;
 		container.replaceWith(host);
 
@@ -185,7 +193,7 @@ async function renderCodeBlock(context, state, code) {
 		if (state.destroyed || code.isConnected === false) {
 			return;
 		}
-		container.replaceWith(createErrorElement(document, error));
+		container.replaceWith(createErrorElement(document, state.options));
 		context.events.emit('chatbot:error', error);
 	}
 }
@@ -200,7 +208,7 @@ function renderElement(context, state, element) {
 	});
 }
 
-function markPending(element) {
+function markPending(element, options) {
 	if (!element || typeof element.querySelectorAll !== 'function') {
 		return;
 	}
@@ -216,7 +224,7 @@ function markPending(element) {
 		indicator.setAttribute('aria-hidden', 'true');
 		const label = document.createElement('span');
 		label.className = 'base3-chatbot-extension-pending-text';
-		label.textContent = 'Inhalt wird erstellt …';
+		label.textContent = getString(options, 'loading', 'Content is being created...');
 		container.append(indicator, label);
 	});
 }
@@ -242,7 +250,7 @@ export const MermaidPlugin = {
 		state.unsubscribe.push(
 			context.events.on('message:rendered', (payload) => {
 				if (!payload?.error) {
-					markPending(getMessageElement(payload));
+					markPending(getMessageElement(payload), state.options);
 				}
 			}),
 			context.events.on('message:completed', (payload) => {

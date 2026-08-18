@@ -102,7 +102,7 @@ function createContent(document, blocks) {
 	return content;
 }
 
-function createContext() {
+function createContext(pluginOptions = {}) {
 	fixtureModule.instances.length = 0;
 	const document = new FakeDocument();
 	const root = new FakeElement('section', document);
@@ -128,7 +128,8 @@ function createContext() {
 			getPluginOptions() {
 				return {
 					moduleUrl,
-					styleUrl: '/assets/modulargrid/styles/modulargrid.css'
+					styleUrl: '/assets/modulargrid/styles/modulargrid.css',
+					...pluginOptions
 				};
 			}
 		}
@@ -193,6 +194,43 @@ test('modular grid plugin renders a completed searchable and pageable table', as
 	assert.equal(grid.destroyed, true);
 });
 
+test('modular grid plugin forwards configured localized strings', async () => {
+	const setup = createContext({
+		strings: {
+			search: 'Suchen',
+			searchPlaceholder: 'Tabelle durchsuchen',
+			rowsPerPage: 'Zeilen pro Seite',
+			clear: 'Löschen',
+			previous: 'Zurück',
+			next: 'Weiter',
+			pageStatus: 'Seite {page} von {totalPages}',
+			noRecords: 'Keine Datensätze',
+			recordsRange: 'Datensätze {from} bis {to} von {total}',
+			recordsRangeFiltered: 'Datensätze {from} bis {to} von {filteredTotal} (gefiltert aus {total})'
+		}
+	});
+	const block = createCodeBlock(setup.document, {
+		columns: [{ key: 'name', label: 'Name' }],
+		rows: [{ name: 'Alpha' }],
+		search: true,
+		paging: true,
+		page_size: 10
+	});
+	const content = createContent(setup.document, [block]);
+
+	ModularGridPlugin.install(setup.context);
+	setup.events.emit('message:completed', { content, interaction: false, error: false });
+	await flushAsyncWork();
+
+	const grid = fixtureModule.instances[0];
+	assert.equal(grid.options.strings.search, 'Suchen');
+	assert.equal(grid.options.strings.searchPlaceholder, 'Tabelle durchsuchen');
+	assert.equal(grid.options.strings.previous, 'Zurück');
+	assert.equal(grid.options.strings.recordsRange, 'Datensätze {from} bis {to} von {total}');
+
+	ModularGridPlugin.destroy(setup.context);
+});
+
 test('modular grid plugin renders restored tables without search or paging', async () => {
 	const setup = createContext();
 	const block = createCodeBlock(setup.document, {
@@ -249,9 +287,11 @@ test('modular grid plugin rejects undeclared row keys and nested cell values', a
 	await flushAsyncWork();
 
 	assert.equal(fixtureModule.instances.length, 0);
-	assert.match(undeclared.container.replacement.textContent, /undeclared column "hidden"/);
-	assert.match(nested.container.replacement.textContent, /plain text, a finite number, boolean, or null/);
+	assert.equal(undeclared.container.replacement.textContent, 'Table could not be rendered.');
+	assert.equal(nested.container.replacement.textContent, 'Table could not be rendered.');
 	assert.equal(setup.errors.length, 2);
+	assert.match(setup.errors[0].message, /undeclared column "hidden"/);
+	assert.match(setup.errors[1].message, /plain text, a finite number, boolean, or null/);
 
 	ModularGridPlugin.destroy(setup.context);
 });
@@ -278,9 +318,11 @@ test('modular grid plugin rejects unsupported properties and invalid page sizes'
 	await flushAsyncWork();
 
 	assert.equal(fixtureModule.instances.length, 0);
-	assert.match(unsupported.container.replacement.textContent, /unsupported property "render"/);
-	assert.match(pageSize.container.replacement.textContent, /must be 5, 10, 20, or 50/);
+	assert.equal(unsupported.container.replacement.textContent, 'Table could not be rendered.');
+	assert.equal(pageSize.container.replacement.textContent, 'Table could not be rendered.');
 	assert.equal(setup.errors.length, 2);
+	assert.match(setup.errors[0].message, /unsupported property "render"/);
+	assert.match(setup.errors[1].message, /must be 5, 10, 20, or 50/);
 
 	ModularGridPlugin.destroy(setup.context);
 });

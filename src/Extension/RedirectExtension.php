@@ -70,7 +70,16 @@ PROMPT;
 		return new AssistantResponseClientPlugin(
 			'redirect',
 			$this->resolveVersionedAsset('plugin/ChatbotExtensions/assets/chatbot/RedirectPlugin.js'),
-			'RedirectPlugin'
+			'RedirectPlugin',
+			[
+				'strings' => [
+					'renderError' => $this->getClientTranslation(
+						$context,
+						'client_redirect_error',
+						'Navigation could not be completed.'
+					)
+				]
+			]
 		);
 	}
 }

@@ -19,6 +19,14 @@ function getDocument(context) {
 	return context.root?.ownerDocument || globalThis.document;
 }
 
+function getString(options, key, fallback, replacements = {}) {
+	let value = String(options?.strings?.[key] ?? fallback);
+	for (const [name, replacement] of Object.entries(replacements)) {
+		value = value.split(`{${name}}`).join(String(replacement));
+	}
+	return value;
+}
+
 function ensureStyles(root) {
 	if (!root || typeof root.querySelector !== 'function' || root.querySelector(`style[${STYLE_ATTRIBUTE}]`)) {
 		return;
@@ -292,11 +300,11 @@ function createChartConfiguration(data) {
 	};
 }
 
-function createErrorElement(document, error) {
+function createErrorElement(document, options) {
 	const element = document.createElement('div');
 	element.className = 'base3-chatbot-chart base3-chatbot-chart-error';
 	element.setAttribute('role', 'alert');
-	element.textContent = `Chart error: ${error?.message || error}`;
+	element.textContent = getString(options, 'renderError', 'Chart could not be rendered.');
 	return element;
 }
 
@@ -323,7 +331,7 @@ async function renderCodeBlock(context, state, code) {
 		const host = document.createElement('div');
 		host.className = 'base3-chatbot-chart';
 		host.setAttribute('role', 'img');
-		host.setAttribute('aria-label', data.title || `${data.type} chart`);
+		host.setAttribute('aria-label', data.title || getString(state.options, 'ariaTemplate', '{type} chart', { type: data.type }));
 		const canvas = document.createElement('canvas');
 		host.appendChild(canvas);
 		container.replaceWith(host);
@@ -333,7 +341,7 @@ async function renderCodeBlock(context, state, code) {
 			state.charts.add(chart);
 		}
 		catch (error) {
-			host.replaceWith(createErrorElement(document, error));
+			host.replaceWith(createErrorElement(document, state.options));
 			throw error;
 		}
 	}
@@ -342,7 +350,7 @@ async function renderCodeBlock(context, state, code) {
 			return;
 		}
 		if (code.isConnected !== false) {
-			container.replaceWith(createErrorElement(document, error));
+			container.replaceWith(createErrorElement(document, state.options));
 		}
 		context.events.emit('chatbot:error', error);
 	}

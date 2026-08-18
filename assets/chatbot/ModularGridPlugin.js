@@ -20,6 +20,14 @@ function getDocument(context) {
 	return context.root?.ownerDocument || globalThis.document;
 }
 
+function getString(options, key, fallback, replacements = {}) {
+	let value = String(options?.strings?.[key] ?? fallback);
+	for (const [name, replacement] of Object.entries(replacements)) {
+		value = value.split(`{${name}}`).join(String(replacement));
+	}
+	return value;
+}
+
 function ensureHostStyles(root) {
 	if (!root || typeof root.querySelector !== 'function' || root.querySelector(`style[${STYLE_ATTRIBUTE}]`)) {
 		return;
@@ -95,14 +103,16 @@ function getToolbarGroup(element, toolbar) {
 	return group;
 }
 
-function compactToolbar(gridHost) {
+function compactToolbar(gridHost, options) {
 	if (!gridHost || typeof gridHost.querySelectorAll !== 'function') {
 		return;
 	}
 
 	const labels = [...gridHost.querySelectorAll('label')];
-	const searchLabel = labels.find((label) => getLabelText(label).startsWith('search'));
-	const pageSizeLabel = labels.find((label) => getLabelText(label).startsWith('rows per page'));
+	const searchText = getString(options, 'search', 'Search').trim().toLowerCase();
+	const rowsPerPageText = getString(options, 'rowsPerPage', 'Rows per page').trim().toLowerCase();
+	const searchLabel = labels.find((label) => getLabelText(label).startsWith(searchText));
+	const pageSizeLabel = labels.find((label) => getLabelText(label).startsWith(rowsPerPageText));
 	if (!searchLabel || !pageSizeLabel) {
 		return;
 	}
@@ -355,7 +365,7 @@ function parseTable(code) {
 	};
 }
 
-function createGridOptions(data, module) {
+function createGridOptions(data, module, options) {
 	const plugins = [];
 	if (data.search) {
 		plugins.push(module.SearchPlugin);
@@ -369,6 +379,18 @@ function createGridOptions(data, module) {
 	}
 
 	return {
+		strings: {
+			search: getString(options, 'search', 'Search'),
+			searchPlaceholder: getString(options, 'searchPlaceholder', 'Search table'),
+			rowsPerPage: getString(options, 'rowsPerPage', 'Rows per page'),
+			clear: getString(options, 'clear', 'Clear'),
+			previous: getString(options, 'previous', 'Prev'),
+			next: getString(options, 'next', 'Next'),
+			pageStatus: getString(options, 'pageStatus', 'Page {page} of {totalPages}'),
+			noRecords: getString(options, 'noRecords', 'No records'),
+			recordsRange: getString(options, 'recordsRange', 'Records {from} to {to} of {total}'),
+			recordsRangeFiltered: getString(options, 'recordsRangeFiltered', 'Records {from} to {to} of {filteredTotal} (filtered from {total})')
+		},
 		layout: module.createClassicLayout({
 			top: data.search || data.paging ? ['toolbar'] : [],
 			bottom: data.paging ? ['footerInfo', 'footerPaging'] : ['footerInfo']
@@ -388,13 +410,9 @@ function createGridOptions(data, module) {
 		plugins,
 		pluginOptions: {
 			search: {
-				label: 'Search',
-				placeholder: 'Search table',
 				showClearButton: true
 			},
-			pageSize: {
-				label: 'Rows per page'
-			},
+			pageSize: {},
 			info: {
 				displayMode: 'range'
 			},
@@ -405,11 +423,11 @@ function createGridOptions(data, module) {
 	};
 }
 
-function createErrorElement(document, error) {
+function createErrorElement(document, options) {
 	const element = document.createElement('div');
 	element.className = 'base3-chatbot-grid base3-chatbot-grid-error';
 	element.setAttribute('role', 'alert');
-	element.textContent = `Table error: ${error?.message || error}`;
+	element.textContent = getString(options, 'renderError', 'Table could not be rendered.');
 	return element;
 }
 
@@ -437,7 +455,7 @@ async function renderCodeBlock(context, state, code) {
 		host = document.createElement('section');
 		host.className = 'base3-chatbot-grid';
 		host.setAttribute('role', 'region');
-		host.setAttribute('aria-label', data.title || 'Data table');
+		host.setAttribute('aria-label', data.title || getString(state.options, 'aria', 'Data table'));
 
 		if (data.title) {
 			const title = document.createElement('h4');
@@ -451,9 +469,9 @@ async function renderCodeBlock(context, state, code) {
 		host.appendChild(gridHost);
 		container.replaceWith(host);
 
-		const grid = new module.ModularGrid(gridHost, createGridOptions(data, module));
+		const grid = new module.ModularGrid(gridHost, createGridOptions(data, module, state.options));
 		await grid.init();
-		compactToolbar(gridHost);
+		compactToolbar(gridHost, state.options);
 		if (state.destroyed) {
 			grid.destroy();
 			return;
@@ -464,7 +482,7 @@ async function renderCodeBlock(context, state, code) {
 		if (state.destroyed) {
 			return;
 		}
-		const errorElement = createErrorElement(document, error);
+		const errorElement = createErrorElement(document, state.options);
 		if (host && typeof host.replaceWith === 'function') {
 			host.replaceWith(errorElement);
 		}

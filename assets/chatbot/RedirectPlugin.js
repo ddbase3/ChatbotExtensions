@@ -1,5 +1,9 @@
 const BLOCK_SELECTOR = 'pre > code.language-base3-redirect';
 
+function getString(options, key, fallback) {
+	return String(options?.strings?.[key] ?? fallback);
+}
+
 function getMessageElement(payload) {
 	return payload?.content || payload?.element || null;
 }
@@ -109,7 +113,11 @@ function handleRedirectBlocks(context, state, element, navigate) {
 				const errorElement = document.createElement('div');
 				errorElement.className = 'base3-chatbot-error';
 				errorElement.role = 'alert';
-				errorElement.textContent = error?.message || String(error);
+				errorElement.textContent = getString(
+					state.options,
+					'renderError',
+					'Navigation could not be completed.'
+				);
 				container.replaceWith(errorElement);
 			}
 			context.events.emit('chatbot:error', error);
@@ -125,6 +133,7 @@ export const RedirectPlugin = {
 
 		const state = {
 			handled: new WeakSet(),
+			options: context.getPluginOptions(),
 			unsubscribe: []
 		};
 		this.states.set(context.chatbot, state);

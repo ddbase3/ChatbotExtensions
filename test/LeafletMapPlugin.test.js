@@ -386,9 +386,11 @@ test('leaflet map plugin rejects arbitrary tile configuration and invalid coordi
 	await flushAsyncWork();
 
 	assert.equal(leaflet.maps.length, 0);
-	assert.match(first.container.replacement.textContent, /unsupported property "tile_url"/);
-	assert.match(second.container.replacement.textContent, /between -90 and 90/);
+	assert.equal(first.container.replacement.textContent, 'Map could not be rendered.');
+	assert.equal(second.container.replacement.textContent, 'Map could not be rendered.');
 	assert.equal(setup.errors.length, 2);
+	assert.match(setup.errors[0].message, /unsupported property "tile_url"/);
+	assert.match(setup.errors[1].message, /between -90 and 90/);
 
 	LeafletMapPlugin.destroy(setup.context);
 });

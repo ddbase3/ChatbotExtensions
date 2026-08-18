@@ -1,5 +1,14 @@
 const STYLE_ATTRIBUTE = 'data-base3-chatbot-extension-styles';
 
+
+function getString(options, key, fallback, replacements = {}) {
+	let value = String(options?.strings?.[key] ?? fallback);
+	for (const [name, replacement] of Object.entries(replacements)) {
+		value = value.split(`{${name}}`).join(String(replacement));
+	}
+	return value;
+}
+
 function createElement(document, tagName, className = '', text = null) {
 	const element = document.createElement(tagName);
 	if (className) {
@@ -78,7 +87,7 @@ function parseBlock(code) {
 	return value;
 }
 
-function replaceCodeBlocks(context, root, language, renderer) {
+function replaceCodeBlocks(context, root, language, renderer, options) {
 	if (!root || typeof root.querySelectorAll !== 'function') {
 		return;
 	}
@@ -91,7 +100,7 @@ function replaceCodeBlocks(context, root, language, renderer) {
 		}
 
 		try {
-			const replacement = renderer(root.ownerDocument || globalThis.document, parseBlock(code), context);
+			const replacement = renderer(root.ownerDocument || globalThis.document, parseBlock(code), context, options);
 			if (replacement) {
 				container.replaceWith(replacement);
 			}
@@ -101,7 +110,7 @@ function replaceCodeBlocks(context, root, language, renderer) {
 			const replacement = document.createElement('div');
 			replacement.className = 'base3-chatbot-extension-block base3-chatbot-extension-error';
 			replacement.setAttribute('role', 'alert');
-			replacement.textContent = error?.message || String(error);
+			replacement.textContent = getString(options, 'renderError', 'Content could not be rendered.');
 			container.replaceWith(replacement);
 			context.events.emit('chatbot:error', error);
 		}
@@ -114,7 +123,8 @@ function getMessageElement(payload) {
 
 function installStructuredPlugin(context, language, renderer) {
 	ensureStyles(context.root);
-	const render = (element) => replaceCodeBlocks(context, element, language, renderer);
+	const options = context.getPluginOptions();
+	const render = (element) => replaceCodeBlocks(context, element, language, renderer, options);
 	const unsubscribe = [
 		context.events.on('message:completed', (payload) => {
 			if (!payload?.interaction && !payload?.error) {
@@ -289,7 +299,7 @@ function getDownloadContent(data, format) {
 	return JSON.stringify(data.content, null, 2);
 }
 
-function renderDataDownload(document, data) {
+function renderDataDownload(document, data, context, options) {
 	const format = String(data.format || '').toLowerCase();
 	if (!['csv', 'json'].includes(format) || !Object.prototype.hasOwnProperty.call(data, 'content')) {
 		throw new Error('Data download requires csv or json format and content.');
@@ -299,7 +309,7 @@ function renderDataDownload(document, data) {
 	const content = getDownloadContent(data, format);
 	const block = createElement(document, 'section', 'base3-chatbot-extension-block base3-chatbot-download');
 	block.appendChild(createElement(document, 'span', 'base3-chatbot-download-name', filename));
-	const button = createElement(document, 'button', 'btn btn-default base3-chatbot-download-button', `Download ${format.toUpperCase()}`);
+	const button = createElement(document, 'button', 'btn btn-default base3-chatbot-download-button', getString(options, 'download', 'Download {format}', { format: format.toUpperCase() }));
 	button.type = 'button';
 	button.addEventListener('click', () => {
 		const view = document.defaultView || globalThis;

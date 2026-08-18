@@ -58,6 +58,13 @@ When the user explicitly requests a downloadable file, do not replace it with a 
 PROMPT;
 	}
 
+
+	protected function getClientStrings(array $context): array {
+		return array_merge(parent::getClientStrings($context), [
+			'download' => $this->getClientTranslation($context, 'client_download', 'Download {format}')
+		]);
+	}
+
 	protected function getBlockIdentifier(): string {
 		return 'base3-download';
 	}

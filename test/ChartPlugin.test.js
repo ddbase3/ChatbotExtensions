@@ -255,8 +255,9 @@ test('chart plugin rejects unsupported properties instead of forwarding Chart.js
 	assert.equal(chartCount, 0);
 	assert.ok(block.container.replacement);
 	assert.match(block.container.replacement.className, /base3-chatbot-chart-error/);
-	assert.match(block.container.replacement.textContent, /unsupported property "backgroundColor"/);
+	assert.equal(block.container.replacement.textContent, 'Chart could not be rendered.');
 	assert.equal(setup.errors.length, 1);
+	assert.match(setup.errors[0].message, /unsupported property "backgroundColor"/);
 
 	ChartPlugin.destroy(setup.context);
 });
@@ -290,9 +291,11 @@ test('chart plugin enforces matching dataset lengths and one dataset for pie cha
 	await flushAsyncWork();
 
 	assert.equal(chartCount, 0);
-	assert.match(first.container.replacement.textContent, /exactly 2 values/);
-	assert.match(second.container.replacement.textContent, /exactly one dataset/);
+	assert.equal(first.container.replacement.textContent, 'Chart could not be rendered.');
+	assert.equal(second.container.replacement.textContent, 'Chart could not be rendered.');
 	assert.equal(setup.errors.length, 2);
+	assert.match(setup.errors[0].message, /exactly 2 values/);
+	assert.match(setup.errors[1].message, /exactly one dataset/);
 
 	ChartPlugin.destroy(setup.context);
 });

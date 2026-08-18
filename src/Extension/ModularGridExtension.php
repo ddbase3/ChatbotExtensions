@@ -85,7 +85,21 @@ PROMPT;
 				),
 				'styleUrl' => $this->assetResolver->resolve(
 					'plugin/ClientStack/assets/modulargrid/styles/modulargrid.css'
-				)
+				),
+				'strings' => array_merge($this->getClientStrings($context), [
+					'renderError' => $this->getClientTranslation($context, 'client_grid_error', 'Table could not be rendered.'),
+					'aria' => $this->getClientTranslation($context, 'client_grid_aria', 'Data table'),
+					'search' => $this->getClientTranslation($context, 'client_grid_search', 'Search'),
+					'searchPlaceholder' => $this->getClientTranslation($context, 'client_grid_search_placeholder', 'Search table'),
+					'rowsPerPage' => $this->getClientTranslation($context, 'client_grid_rows_per_page', 'Rows per page'),
+					'clear' => $this->getClientTranslation($context, 'client_grid_clear', 'Clear'),
+					'previous' => $this->getClientTranslation($context, 'client_grid_previous', 'Prev'),
+					'next' => $this->getClientTranslation($context, 'client_grid_next', 'Next'),
+					'pageStatus' => $this->getClientTranslation($context, 'client_grid_page_status', 'Page {page} of {totalPages}'),
+					'noRecords' => $this->getClientTranslation($context, 'client_grid_no_records', 'No records'),
+					'recordsRange' => $this->getClientTranslation($context, 'client_grid_records_range', 'Records {from} to {to} of {total}'),
+					'recordsRangeFiltered' => $this->getClientTranslation($context, 'client_grid_records_range_filtered', 'Records {from} to {to} of {filteredTotal} (filtered from {total})')
+				])
 			]
 		);
 	}

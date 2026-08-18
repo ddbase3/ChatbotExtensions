@@ -40,6 +40,14 @@ function getDocument(context) {
 	return context.root?.ownerDocument || globalThis.document;
 }
 
+function getString(options, key, fallback, replacements = {}) {
+	let value = String(options?.strings?.[key] ?? fallback);
+	for (const [name, replacement] of Object.entries(replacements)) {
+		value = value.split(`{${name}}`).join(String(replacement));
+	}
+	return value;
+}
+
 function ensureStyles(root) {
 	if (!root || typeof root.querySelector !== 'function' || root.querySelector(`style[${STYLE_ATTRIBUTE}]`)) {
 		return;
@@ -295,14 +303,14 @@ function parseMap(code) {
 	};
 }
 
-function createBaseLayers(leaflet) {
+function createBaseLayers(leaflet, options) {
 	const byType = {};
 	const byLabel = {};
 
 	for (const [type, definition] of Object.entries(BASE_MAPS)) {
 		const layer = leaflet.tileLayer(definition.url, { ...definition.options });
 		byType[type] = layer;
-		byLabel[definition.label] = layer;
+		byLabel[getString(options, type, definition.label)] = layer;
 	}
 
 	return { byType, byLabel };
@@ -357,11 +365,11 @@ function scheduleInvalidateSize(map) {
 	globalThis.setTimeout(run, 0);
 }
 
-function createErrorElement(document, error) {
+function createErrorElement(document, options) {
 	const element = document.createElement('div');
 	element.className = 'base3-chatbot-map base3-chatbot-map-error';
 	element.setAttribute('role', 'alert');
-	element.textContent = `Map error: ${error?.message || error}`;
+	element.textContent = getString(options, 'renderError', 'Map could not be rendered.');
 	return element;
 }
 
@@ -390,7 +398,7 @@ async function renderCodeBlock(context, state, code) {
 		host = document.createElement('section');
 		host.className = 'base3-chatbot-map';
 		host.setAttribute('role', 'region');
-		host.setAttribute('aria-label', data.title || 'Interactive map');
+		host.setAttribute('aria-label', data.title || getString(state.options, 'aria', 'Interactive map'));
 
 		if (data.title) {
 			const title = document.createElement('h4');
@@ -410,7 +418,7 @@ async function renderCodeBlock(context, state, code) {
 			scrollWheelZoom: false
 		});
 
-		const layers = createBaseLayers(leaflet);
+		const layers = createBaseLayers(leaflet, state.options);
 		layers.byType[data.mapType].addTo(map);
 		leaflet.control.layers(layers.byLabel, null, {
 			collapsed: true,
@@ -435,7 +443,7 @@ async function renderCodeBlock(context, state, code) {
 			return;
 		}
 
-		const errorElement = createErrorElement(document, error);
+		const errorElement = createErrorElement(document, state.options);
 		if (host && typeof host.replaceWith === 'function') {
 			host.replaceWith(errorElement);
 		}

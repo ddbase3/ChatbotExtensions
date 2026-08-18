@@ -68,6 +68,9 @@ function createContext(blockLanguage, payload, executeCommand = null) {
 	const context = {
 		chatbot: {},
 		root,
+		getPluginOptions() {
+			return {};
+		},
 		commands: {
 			execute(name, commandPayload) {
 				commands.push({ name, payload: commandPayload });

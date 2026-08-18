@@ -42,7 +42,8 @@ abstract class AbstractStructuredContentExtension extends AbstractChatbotExtensi
 		return new AssistantResponseClientPlugin(
 			$this->id(),
 			$this->resolveVersionedAsset('plugin/ChatbotExtensions/assets/chatbot/StructuredContentPlugins.js'),
-			$this->getClientExportName()
+			$this->getClientExportName(),
+			['strings' => $this->getClientStrings($context)]
 		);
 	}
 }
