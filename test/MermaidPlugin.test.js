@@ -224,6 +224,32 @@ test('mermaid plugin serializes multiple render operations', async () => {
 	MermaidPlugin.destroy(setup.context);
 });
 
+test('mermaid plugin unwraps fenced and JSON-wrapped source', async () => {
+	const sources = [];
+	const mermaid = {
+		initialize() {},
+		async render(id, source) {
+			sources.push(source);
+			return { svg: '<svg></svg>' };
+		}
+	};
+	const setup = createContext(mermaid);
+	const first = createCodeBlock(setup.document, '```mermaid\nflowchart TD\n    A --> B\n```');
+	const second = createCodeBlock(setup.document, JSON.stringify({ code: 'sequenceDiagram\n    A->>B: Hello' }));
+	const content = createContent(setup.document, [first, second]);
+
+	MermaidPlugin.install(setup.context);
+	setup.events.emit('message:completed', { content, interaction: false, error: false });
+	await flushAsyncWork();
+
+	assert.deepEqual(sources, [
+		'flowchart TD\n    A --> B',
+		'sequenceDiagram\n    A->>B: Hello'
+	]);
+	assert.deepEqual(setup.errors, []);
+	MermaidPlugin.destroy(setup.context);
+});
+
 test('mermaid plugin shows parser errors inside the message', async () => {
 	const parseError = new Error('Parse error on line 2');
 	const mermaid = {
@@ -246,7 +272,9 @@ test('mermaid plugin shows parser errors inside the message', async () => {
 
 	assert.ok(block.container.replacement);
 	assert.match(block.container.replacement.className, /base3-chatbot-mermaid-error/);
-	assert.equal(block.container.replacement.textContent, 'Diagram could not be rendered.');
+	assert.equal(block.container.replacement.children[0].textContent, 'Mermaid diagram could not be rendered.');
+	assert.equal(block.container.replacement.children[1].textContent, 'Parse error on line 2');
+	assert.equal(block.container.replacement.children[2].children[2].children[0].textContent, '```mermaid\ngraph TD\n    A -- B\n```');
 	assert.deepEqual(setup.errors, [parseError]);
 
 	MermaidPlugin.destroy(setup.context);

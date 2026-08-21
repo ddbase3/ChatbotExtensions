@@ -287,8 +287,8 @@ test('modular grid plugin rejects undeclared row keys and nested cell values', a
 	await flushAsyncWork();
 
 	assert.equal(fixtureModule.instances.length, 0);
-	assert.match(undeclared.container.replacement.textContent, /^Table could not be rendered\. .*undeclared column \"hidden\"/);
-	assert.match(nested.container.replacement.textContent, /^Table could not be rendered\. .*plain text, a finite number, boolean, or null/);
+	assert.match(undeclared.container.replacement.children[1].textContent, /undeclared column "hidden"/);
+	assert.match(nested.container.replacement.children[1].textContent, /plain text, a finite number, boolean, or null/);
 	assert.equal(setup.errors.length, 2);
 	assert.match(setup.errors[0].message, /undeclared column "hidden"/);
 	assert.match(setup.errors[1].message, /plain text, a finite number, boolean, or null/);
@@ -296,11 +296,12 @@ test('modular grid plugin rejects undeclared row keys and nested cell values', a
 	ModularGridPlugin.destroy(setup.context);
 });
 
-test('modular grid plugin rejects unsupported properties and invalid page sizes', async () => {
+test('modular grid plugin ignores unsupported presentation properties and rejects invalid page sizes', async () => {
 	const setup = createContext();
 	const unsupported = createCodeBlock(setup.document, {
 		columns: [{ key: 'name', label: 'Name', render: 'html' }],
-		rows: [{ name: 'Alpha' }]
+		rows: [{ name: 'Alpha' }],
+		unknown_option: true
 	});
 	const pageSize = createCodeBlock(setup.document, {
 		columns: [{ key: 'name', label: 'Name' }],
@@ -317,13 +318,37 @@ test('modular grid plugin rejects unsupported properties and invalid page sizes'
 	});
 	await flushAsyncWork();
 
-	assert.equal(fixtureModule.instances.length, 0);
-	assert.match(unsupported.container.replacement.textContent, /^Table could not be rendered\. .*unsupported property \"render\"/);
-	assert.match(pageSize.container.replacement.textContent, /^Table could not be rendered\. .*must be 5, 10, 20, or 50/);
-	assert.equal(setup.errors.length, 2);
-	assert.match(setup.errors[0].message, /unsupported property "render"/);
-	assert.match(setup.errors[1].message, /must be 5, 10, 20, or 50/);
+	assert.equal(fixtureModule.instances.length, 1);
+	assert.match(pageSize.container.replacement.children[1].textContent, /must be 5, 10, 20, or 50/);
+	assert.equal(setup.errors.length, 1);
+	assert.match(setup.errors[0].message, /must be 5, 10, 20, or 50/);
 
+	ModularGridPlugin.destroy(setup.context);
+});
+
+test('modular grid plugin normalizes invalid LLM column keys and row aliases', async () => {
+	const setup = createContext();
+	const block = createCodeBlock(setup.document, {
+		columns: [
+			{ key: '2026', label: '2026' },
+			{ key: 'Completion %', label: 'Completion %' }
+		],
+		rows: [{ '2026': 42, 'Completion %': '75%' }],
+		search: 'true',
+		page_size: '10'
+	});
+	const content = createContent(setup.document, [block]);
+
+	ModularGridPlugin.install(setup.context);
+	setup.events.emit('message:completed', { content, interaction: false, error: false });
+	await flushAsyncWork();
+
+	assert.equal(fixtureModule.instances.length, 1);
+	const grid = fixtureModule.instances[0];
+	assert.equal(grid.options.columns[0].key, 'field_2026');
+	assert.equal(grid.options.columns[1].key, 'Completion_percent');
+	assert.deepEqual(grid.options.adapter.rows, [{ field_2026: 42, Completion_percent: '75%' }]);
+	assert.deepEqual(setup.errors, []);
 	ModularGridPlugin.destroy(setup.context);
 });
 

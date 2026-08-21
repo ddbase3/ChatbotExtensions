@@ -3,17 +3,6 @@ const pendingScripts = new Map();
 const STYLE_ATTRIBUTE = 'data-base3-chatbot-chart-styles';
 const BLOCK_SELECTOR = 'pre > code.language-base3-chart';
 const ALLOWED_TYPES = new Set(['bar', 'line', 'pie', 'doughnut']);
-const ALLOWED_PROPERTIES = new Set([
-	'type',
-	'title',
-	'labels',
-	'datasets',
-	'x_label',
-	'y_label',
-	'begin_at_zero',
-	'stacked'
-]);
-const ALLOWED_DATASET_PROPERTIES = new Set(['label', 'data']);
 
 function getDocument(context) {
 	return context.root?.ownerDocument || globalThis.document;
@@ -114,14 +103,6 @@ function isObject(value) {
 	return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function assertAllowedProperties(value, allowed, label) {
-	for (const key of Object.keys(value)) {
-		if (!allowed.has(key)) {
-			throw new Error(`${label} contains unsupported property "${key}".`);
-		}
-	}
-}
-
 function normalizeText(value, label, maximumLength, required = false) {
 	if (value === undefined || value === null) {
 		if (required) {
@@ -144,20 +125,43 @@ function normalizeText(value, label, maximumLength, required = false) {
 }
 
 function normalizeBoolean(value, label, fallback) {
-	if (value === undefined) {
+	if (value === undefined || value === null || value === '') {
 		return fallback;
 	}
-	if (typeof value !== 'boolean') {
-		throw new Error(`${label} must be boolean.`);
+	if (typeof value === 'boolean') {
+		return value;
 	}
-	return value;
+	if (typeof value === 'string') {
+		const normalized = value.trim().toLowerCase();
+		if (normalized === 'true') return true;
+		if (normalized === 'false') return false;
+	}
+	throw new Error(`${label} must be boolean.`);
 }
 
 function normalizeLabels(value) {
 	if (!Array.isArray(value) || value.length < 1 || value.length > 100) {
 		throw new Error('Chart labels must contain between 1 and 100 entries.');
 	}
-	return value.map((label, index) => normalizeText(label, `Chart label ${index + 1}`, 200, true));
+	return value.map((label, index) => {
+		if (typeof label === 'number' && Number.isFinite(label)) return String(label);
+		if (typeof label === 'boolean') return label ? 'true' : 'false';
+		return normalizeText(label, `Chart label ${index + 1}`, 200, true);
+	});
+}
+
+function normalizeNumber(value, label) {
+	if (typeof value === 'number' && Number.isFinite(value)) {
+		return value;
+	}
+	if (typeof value === 'string') {
+		const source = value.trim();
+		if (/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(source)) {
+			const number = Number(source);
+			if (Number.isFinite(number)) return number;
+		}
+	}
+	throw new Error(`${label} must be a finite number.`);
 }
 
 function normalizeDatasets(value, labelCount) {
@@ -169,30 +173,34 @@ function normalizeDatasets(value, labelCount) {
 		if (!isObject(dataset)) {
 			throw new Error(`Chart dataset ${datasetIndex + 1} must be an object.`);
 		}
-		assertAllowedProperties(dataset, ALLOWED_DATASET_PROPERTIES, `Chart dataset ${datasetIndex + 1}`);
 
 		const label = normalizeText(dataset.label, `Chart dataset ${datasetIndex + 1} label`, 120, true);
 		if (!Array.isArray(dataset.data) || dataset.data.length !== labelCount) {
 			throw new Error(`Chart dataset ${datasetIndex + 1} must contain exactly ${labelCount} values.`);
 		}
 
-		const data = dataset.data.map((value, valueIndex) => {
-			if (typeof value !== 'number' || !Number.isFinite(value)) {
-				throw new Error(`Chart dataset ${datasetIndex + 1} value ${valueIndex + 1} must be a finite number.`);
-			}
-			return value;
-		});
+		const data = dataset.data.map((value, valueIndex) => normalizeNumber(
+			value,
+			`Chart dataset ${datasetIndex + 1} value ${valueIndex + 1}`
+		));
 
 		return { label, data };
 	});
 }
 
-function parseChart(code) {
-	const source = String(code?.textContent || '').trim();
-	if (!source) {
-		throw new Error('Chart block is empty.');
-	}
+function normalizeFencedSource(source) {
+	const normalized = String(source || '').replace(/\r\n?/g, '\n').trim();
+	const match = normalized.match(/^```([^\n`]*)\n([\s\S]*?)\n```$/);
+	if (!match) return normalized;
 
+	const language = String(match[1] || '').trim().toLowerCase();
+	if (language === '' || language === 'json' || language === 'base3-chart') {
+		return match[2].trim();
+	}
+	return normalized;
+}
+
+function parseJsonValue(source) {
 	let value;
 	try {
 		value = JSON.parse(source);
@@ -201,18 +209,40 @@ function parseChart(code) {
 		throw new Error(`Chart block contains invalid JSON: ${error.message}`);
 	}
 
+	if (typeof value === 'string') {
+		const nested = value.trim();
+		if (nested.startsWith('{') && nested.endsWith('}')) {
+			try {
+				value = JSON.parse(nested);
+			}
+			catch (error) {
+				throw new Error(`Chart block contains invalid nested JSON: ${error.message}`);
+			}
+		}
+	}
+	return value;
+}
+
+function parseChart(code) {
+	const source = normalizeFencedSource(code?.textContent || '');
+	if (!source) {
+		throw new Error('Chart block is empty.');
+	}
+
+	const value = parseJsonValue(source);
 	if (!isObject(value)) {
 		throw new Error('Chart block must contain one JSON object.');
 	}
-	assertAllowedProperties(value, ALLOWED_PROPERTIES, 'Chart');
 
-	const type = normalizeText(value.type, 'Chart type', 20, true).toLowerCase();
+	const wrappedData = isObject(value.data) ? value.data : null;
+	const rawType = normalizeText(value.type, 'Chart type', 20, true).toLowerCase();
+	const type = rawType === 'donut' ? 'doughnut' : rawType;
 	if (!ALLOWED_TYPES.has(type)) {
 		throw new Error('Chart type must be bar, line, pie, or doughnut.');
 	}
 
-	const labels = normalizeLabels(value.labels);
-	const datasets = normalizeDatasets(value.datasets, labels.length);
+	const labels = normalizeLabels(value.labels ?? wrappedData?.labels);
+	const datasets = normalizeDatasets(value.datasets ?? wrappedData?.datasets, labels.length);
 	if (['pie', 'doughnut'].includes(type) && datasets.length !== 1) {
 		throw new Error('Pie and doughnut charts require exactly one dataset.');
 	}
@@ -227,9 +257,9 @@ function parseChart(code) {
 		title: normalizeText(value.title, 'Chart title', 200),
 		labels,
 		datasets,
-		xLabel: normalizeText(value.x_label, 'Chart x-axis label', 120),
-		yLabel: normalizeText(value.y_label, 'Chart y-axis label', 120),
-		beginAtZero: normalizeBoolean(value.begin_at_zero, 'Chart begin_at_zero', false),
+		xLabel: normalizeText(value.x_label ?? value.xLabel, 'Chart x-axis label', 120),
+		yLabel: normalizeText(value.y_label ?? value.yLabel, 'Chart y-axis label', 120),
+		beginAtZero: normalizeBoolean(value.begin_at_zero ?? value.beginAtZero, 'Chart begin_at_zero', false),
 		stacked
 	};
 }
@@ -300,35 +330,98 @@ function createChartConfiguration(data) {
 	};
 }
 
-function createErrorElement(document, options) {
+function copyText(document, text) {
+	if (globalThis.navigator?.clipboard && typeof globalThis.navigator.clipboard.writeText === 'function') {
+		return globalThis.navigator.clipboard.writeText(text);
+	}
+	if (!document?.body || typeof document.execCommand !== 'function') {
+		return Promise.reject(new Error('Clipboard API is unavailable.'));
+	}
+
+	const textarea = document.createElement('textarea');
+	textarea.value = text;
+	textarea.setAttribute('readonly', '');
+	textarea.style.position = 'fixed';
+	textarea.style.opacity = '0';
+	document.body.appendChild(textarea);
+	textarea.select();
+	const copied = document.execCommand('copy');
+	textarea.remove();
+	return copied ? Promise.resolve() : Promise.reject(new Error('Copy command failed.'));
+}
+
+function appendErrorDetails(element, document, error, source, options) {
+	const message = String(error?.message || error || '').trim();
+	if (message) {
+		const reason = document.createElement('div');
+		reason.className = 'base3-chatbot-extension-error-reason';
+		reason.textContent = message;
+		element.appendChild(reason);
+	}
+	if (!source) return;
+
+	const details = document.createElement('details');
+	details.className = 'base3-chatbot-extension-error-details';
+	const summary = document.createElement('summary');
+	summary.textContent = getString(options, 'renderDetails', 'Technical details');
+	details.appendChild(summary);
+
+	const label = document.createElement('div');
+	label.textContent = getString(options, 'renderGeneratedCode', 'Generated extension code');
+	details.appendChild(label);
+
+	const pre = document.createElement('pre');
+	const code = document.createElement('code');
+	code.textContent = source;
+	pre.appendChild(code);
+	details.appendChild(pre);
+
+	const button = document.createElement('button');
+	button.type = 'button';
+	button.textContent = getString(options, 'renderCopyCode', 'Copy generated code');
+	if (typeof button.addEventListener === 'function') {
+		button.addEventListener('click', () => {
+			copyText(document, source).then(() => {
+				button.textContent = getString(options, 'renderCopiedCode', 'Copied');
+			}).catch(() => {
+				button.textContent = getString(options, 'renderCopyFailed', 'Copy failed');
+			});
+		});
+	}
+	details.appendChild(button);
+	element.appendChild(details);
+}
+
+function createErrorElement(document, error, source, options) {
 	const element = document.createElement('div');
 	element.className = 'base3-chatbot-chart base3-chatbot-chart-error';
 	element.setAttribute('role', 'alert');
-	element.textContent = getString(options, 'renderError', 'Chart could not be rendered.');
+
+	const title = document.createElement('div');
+	title.textContent = getString(options, 'renderError', 'Chart.js chart could not be rendered.');
+	element.appendChild(title);
+	appendErrorDetails(element, document, error, source, options);
 	return element;
 }
 
 async function renderCodeBlock(context, state, code) {
-	if (!code || code.dataset?.base3ChartState) {
-		return;
-	}
+	if (!code || code.dataset?.base3ChartState) return;
 
 	const container = code.parentElement;
-	if (!container || typeof container.replaceWith !== 'function') {
-		return;
-	}
+	if (!container || typeof container.replaceWith !== 'function') return;
 
+	const source = String(code.textContent || '').replace(/\r\n?/g, '\n').trim();
+	const diagnosticSource = `\`\`\`base3-chart\n${source}\n\`\`\``;
 	code.dataset.base3ChartState = 'rendering';
 	const document = code.ownerDocument || getDocument(context);
+	let host = null;
 
 	try {
 		const data = parseChart(code);
 		const Chart = await resolveChart(context, state.options);
-		if (state.destroyed || code.isConnected === false) {
-			return;
-		}
+		if (state.destroyed || code.isConnected === false) return;
 
-		const host = document.createElement('div');
+		host = document.createElement('div');
 		host.className = 'base3-chatbot-chart';
 		host.setAttribute('role', 'img');
 		host.setAttribute('aria-label', data.title || getString(state.options, 'ariaTemplate', '{type} chart', { type: data.type }));
@@ -336,21 +429,17 @@ async function renderCodeBlock(context, state, code) {
 		host.appendChild(canvas);
 		container.replaceWith(host);
 
-		try {
-			const chart = new Chart(canvas, createChartConfiguration(data));
-			state.charts.add(chart);
-		}
-		catch (error) {
-			host.replaceWith(createErrorElement(document, state.options));
-			throw error;
-		}
+		const chart = new Chart(canvas, createChartConfiguration(data));
+		state.charts.add(chart);
 	}
 	catch (error) {
-		if (state.destroyed) {
-			return;
+		if (state.destroyed) return;
+		const errorElement = createErrorElement(document, error, diagnosticSource, state.options);
+		if (host && typeof host.replaceWith === 'function') {
+			host.replaceWith(errorElement);
 		}
-		if (code.isConnected !== false) {
-			container.replaceWith(createErrorElement(document, state.options));
+		else if (code.isConnected !== false) {
+			container.replaceWith(errorElement);
 		}
 		context.events.emit('chatbot:error', error);
 	}

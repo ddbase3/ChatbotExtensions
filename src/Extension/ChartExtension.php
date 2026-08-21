@@ -65,10 +65,10 @@ The complete chart must use the exact fenced block identifier `base3-chart`:
 ```
 The opening fence, the exact identifier `base3-chart`, one JSON object, and the closing fence are mandatory.
 Allowed chart types are `bar`, `line`, `pie`, and `doughnut`.
-Required properties are `type`, `labels`, and `datasets`. `title`, `x_label`, `y_label`, `begin_at_zero`, and `stacked` are optional.
+Required properties are `type`, `labels`, and `datasets`. `title`, `x_label`, `y_label`, `begin_at_zero`, and `stacked` are optional. Keep `labels` and `datasets` at the top level of the JSON object.
 `labels` must contain between 1 and 100 short plain-text labels. `datasets` must contain between 1 and 6 entries. Every dataset requires a short plain-text `label` and a numeric `data` array with exactly one finite number per label.
 Pie and doughnut charts must use exactly one dataset. `stacked` is only meaningful for bar charts.
-Do not include colors, HTML, Markdown, JavaScript, callbacks, plugins, URLs, nested code fences, or Chart.js configuration objects. Do not add properties other than those documented above and `label` plus `data` inside datasets.
+Do not include colors, HTML, Markdown, JavaScript, callbacks, plugins, URLs, nested code fences, or native Chart.js `data`/`options` configuration objects. Do not add properties other than those documented above and `label` plus `data` inside datasets.
 Use normal explanatory prose outside the block when useful. When the user explicitly requests a supported chart, do not replace it with an ordinary Markdown table or a textual list of values.
 Before finishing, verify that the JSON is valid, all dataset lengths match the label count, and all data values are finite numbers.
 PROMPT;

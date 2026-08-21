@@ -4,8 +4,6 @@ const loadedStyles = new WeakMap();
 const STYLE_ATTRIBUTE = 'data-base3-chatbot-map-styles';
 const RESOURCE_ATTRIBUTE = 'data-base3-module-resource';
 const BLOCK_SELECTOR = 'pre > code.language-base3-map';
-const ALLOWED_PROPERTIES = new Set(['title', 'map_type', 'points']);
-const ALLOWED_POINT_PROPERTIES = new Set(['lat', 'lng', 'label', 'description']);
 const ALLOWED_MAP_TYPES = new Set(['street', 'satellite', 'topographic']);
 
 const BASE_MAPS = Object.freeze({
@@ -193,14 +191,6 @@ function isObject(value) {
 	return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function assertAllowedProperties(value, allowed, label) {
-	for (const key of Object.keys(value)) {
-		if (!allowed.has(key)) {
-			throw new Error(`${label} contains unsupported property "${key}".`);
-		}
-	}
-}
-
 function normalizeText(value, label, maximumLength, required = false) {
 	if (value === undefined || value === null) {
 		if (required) {
@@ -238,23 +228,27 @@ function normalizeMarkdown(value, label, maximumLength) {
 }
 
 function normalizeCoordinate(value, label, minimum, maximum) {
-	if (typeof value !== 'number' || !Number.isFinite(value)) {
+	const number = typeof value === 'string' && /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(value.trim())
+		? Number(value.trim())
+		: value;
+	if (typeof number !== 'number' || !Number.isFinite(number)) {
 		throw new Error(`${label} must be a finite number.`);
 	}
-	if (value < minimum || value > maximum) {
+	if (number < minimum || number > maximum) {
 		throw new Error(`${label} must be between ${minimum} and ${maximum}.`);
 	}
-	return value;
+	return number;
 }
 
 function normalizeMapType(value) {
-	if (value === undefined || value === null || value === '') {
-		return 'street';
-	}
-	if (typeof value !== 'string' || !ALLOWED_MAP_TYPES.has(value)) {
+	if (value === undefined || value === null || value === '') return 'street';
+	if (typeof value !== 'string') throw new Error('Map map_type must be street, satellite, or topographic.');
+	let type = value.trim().toLowerCase();
+	if (type === 'terrain' || type === 'topo') type = 'topographic';
+	if (!ALLOWED_MAP_TYPES.has(type)) {
 		throw new Error('Map map_type must be street, satellite, or topographic.');
 	}
-	return value;
+	return type;
 }
 
 function normalizePoints(value) {
@@ -266,40 +260,43 @@ function normalizePoints(value) {
 		if (!isObject(point)) {
 			throw new Error(`Map point ${index + 1} must be an object.`);
 		}
-		assertAllowedProperties(point, ALLOWED_POINT_PROPERTIES, `Map point ${index + 1}`);
 
 		return {
-			lat: normalizeCoordinate(point.lat, `Map point ${index + 1} lat`, -90, 90),
-			lng: normalizeCoordinate(point.lng, `Map point ${index + 1} lng`, -180, 180),
-			label: normalizeText(point.label, `Map point ${index + 1} label`, 120, true),
-			description: normalizeMarkdown(point.description, `Map point ${index + 1} description`, 500)
+			lat: normalizeCoordinate(point.lat ?? point.latitude, `Map point ${index + 1} lat`, -90, 90),
+			lng: normalizeCoordinate(point.lng ?? point.lon ?? point.longitude, `Map point ${index + 1} lng`, -180, 180),
+			label: normalizeText(point.label ?? point.name ?? point.title, `Map point ${index + 1} label`, 120, true),
+			description: normalizeMarkdown(point.description ?? point.text, `Map point ${index + 1} description`, 500)
 		};
 	});
 }
 
+function normalizeFencedSource(source) {
+	const normalized = String(source || '').replace(/\r\n?/g, '\n').trim();
+	const match = normalized.match(/^```([^\n`]*)\n([\s\S]*?)\n```$/);
+	if (!match) return normalized;
+	const language = String(match[1] || '').trim().toLowerCase();
+	if (language === '' || language === 'json' || language === 'base3-map') return match[2].trim();
+	return normalized;
+}
+
 function parseMap(code) {
-	const source = String(code?.textContent || '').trim();
-	if (!source) {
-		throw new Error('Map block is empty.');
-	}
+	const source = normalizeFencedSource(code?.textContent || '');
+	if (!source) throw new Error('Map block is empty.');
 
 	let value;
 	try {
 		value = JSON.parse(source);
+		if (typeof value === 'string' && value.trim().startsWith('{')) value = JSON.parse(value.trim());
 	}
 	catch (error) {
 		throw new Error(`Map block contains invalid JSON: ${error.message}`);
 	}
 
-	if (!isObject(value)) {
-		throw new Error('Map block must contain one JSON object.');
-	}
-	assertAllowedProperties(value, ALLOWED_PROPERTIES, 'Map');
-
+	if (!isObject(value)) throw new Error('Map block must contain one JSON object.');
 	return {
 		title: normalizeText(value.title, 'Map title', 200),
-		mapType: normalizeMapType(value.map_type),
-		points: normalizePoints(value.points)
+		mapType: normalizeMapType(value.map_type ?? value.mapType),
+		points: normalizePoints(value.points ?? value.markers)
 	};
 }
 
@@ -365,11 +362,63 @@ function scheduleInvalidateSize(map) {
 	globalThis.setTimeout(run, 0);
 }
 
-function createErrorElement(document, options) {
+function copyText(document, text) {
+	if (globalThis.navigator?.clipboard && typeof globalThis.navigator.clipboard.writeText === 'function') {
+		return globalThis.navigator.clipboard.writeText(text);
+	}
+	if (!document?.body || typeof document.execCommand !== 'function') {
+		return Promise.reject(new Error('Clipboard API is unavailable.'));
+	}
+	const textarea = document.createElement('textarea');
+	textarea.value = text;
+	textarea.setAttribute('readonly', '');
+	textarea.style.position = 'fixed';
+	textarea.style.opacity = '0';
+	document.body.appendChild(textarea);
+	textarea.select();
+	const copied = document.execCommand('copy');
+	textarea.remove();
+	return copied ? Promise.resolve() : Promise.reject(new Error('Copy command failed.'));
+}
+
+function createErrorElement(document, error, source, options) {
 	const element = document.createElement('div');
 	element.className = 'base3-chatbot-map base3-chatbot-map-error';
 	element.setAttribute('role', 'alert');
-	element.textContent = getString(options, 'renderError', 'Map could not be rendered.');
+	const title = document.createElement('div');
+	title.textContent = getString(options, 'renderError', 'Map could not be rendered.');
+	element.appendChild(title);
+	const message = String(error?.message || error || '').trim();
+	if (message) {
+		const reason = document.createElement('div');
+		reason.textContent = message;
+		element.appendChild(reason);
+	}
+	if (!source) return element;
+	const details = document.createElement('details');
+	const summary = document.createElement('summary');
+	summary.textContent = getString(options, 'renderDetails', 'Technical details');
+	details.appendChild(summary);
+	const label = document.createElement('div');
+	label.textContent = getString(options, 'renderGeneratedCode', 'Generated extension code');
+	details.appendChild(label);
+	const pre = document.createElement('pre');
+	const code = document.createElement('code');
+	code.textContent = source;
+	pre.appendChild(code);
+	details.appendChild(pre);
+	const button = document.createElement('button');
+	button.type = 'button';
+	button.textContent = getString(options, 'renderCopyCode', 'Copy generated code');
+	if (typeof button.addEventListener === 'function') {
+		button.addEventListener('click', () => copyText(document, source).then(() => {
+			button.textContent = getString(options, 'renderCopiedCode', 'Copied');
+		}).catch(() => {
+			button.textContent = getString(options, 'renderCopyFailed', 'Copy failed');
+		}));
+	}
+	details.appendChild(button);
+	element.appendChild(details);
 	return element;
 }
 
@@ -383,6 +432,8 @@ async function renderCodeBlock(context, state, code) {
 		return;
 	}
 
+	const source = String(code.textContent || '').replace(/\r\n?/g, '\n').trim();
+	const diagnosticSource = `\`\`\`base3-map\n${source}\n\`\`\``;
 	code.dataset.base3MapState = 'rendering';
 	const document = code.ownerDocument || getDocument(context);
 	let host = null;
@@ -443,7 +494,7 @@ async function renderCodeBlock(context, state, code) {
 			return;
 		}
 
-		const errorElement = createErrorElement(document, state.options);
+		const errorElement = createErrorElement(document, error, diagnosticSource, state.options);
 		if (host && typeof host.replaceWith === 'function') {
 			host.replaceWith(errorElement);
 		}

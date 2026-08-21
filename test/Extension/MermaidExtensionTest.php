@@ -21,6 +21,8 @@ final class MermaidExtensionTest extends TestCase {
 		$this->assertStringContainsString('```mermaid', $prompt);
 		$this->assertStringContainsString('Write raw Mermaid syntax', $prompt);
 		$this->assertStringContainsString('Do not wrap the source in JSON', $prompt);
+		$this->assertStringContainsString('Keep node identifiers short, ASCII-only, and simple', $prompt);
+		$this->assertStringContainsString('prefer quoted labels', $prompt);
 		$this->assertNotNull($plugin);
 		$this->assertSame('mermaid', $plugin->getName());
 		$this->assertSame('MermaidPlugin', $plugin->getExportName());

@@ -38,7 +38,12 @@ abstract class AbstractChatbotExtension implements IAssistantResponseExtension, 
 	/** @return array<string,string> */
 	protected function getClientStrings(array $context): array {
 		return [
-			'renderError' => $this->getClientTranslation($context, 'client_render_error', 'Content could not be rendered.')
+			'renderError' => $this->getClientTranslation($context, 'client_render_error', 'Content could not be rendered.'),
+			'renderDetails' => $this->getClientTranslation($context, 'client_render_details', 'Technical details'),
+			'renderGeneratedCode' => $this->getClientTranslation($context, 'client_render_generated_code', 'Generated extension code'),
+			'renderCopyCode' => $this->getClientTranslation($context, 'client_render_copy_code', 'Copy generated code'),
+			'renderCopiedCode' => $this->getClientTranslation($context, 'client_render_copied_code', 'Copied'),
+			'renderCopyFailed' => $this->getClientTranslation($context, 'client_render_copy_failed', 'Copy failed')
 		];
 	}
 

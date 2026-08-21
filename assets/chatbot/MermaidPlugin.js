@@ -126,9 +126,37 @@ function createRenderId() {
 }
 
 function normalizeSource(code) {
-	return String(code?.textContent || '')
-		.replace(/\r\n?/g, '\n')
-		.trim();
+	let source = String(code?.textContent || '').replace(/\r\n?/g, '\n').trim();
+	if (!source) return '';
+
+	const fence = source.match(/^```([^\n`]*)\n([\s\S]*?)\n```$/);
+	if (fence) {
+		const language = String(fence[1] || '').trim().toLowerCase();
+		if (language === '' || language === 'mermaid') {
+			source = fence[2].trim();
+		}
+	}
+
+	if (source.startsWith('"') || source.startsWith('{')) {
+		try {
+			const decoded = JSON.parse(source);
+			if (typeof decoded === 'string') {
+				source = decoded.trim();
+			}
+			else if (decoded && typeof decoded === 'object' && !Array.isArray(decoded)) {
+				const wrapped = decoded.code ?? decoded.source ?? decoded.mermaid;
+				if (typeof wrapped === 'string') source = wrapped.trim();
+			}
+		}
+		catch (error) {
+			// Mermaid source may legitimately begin with characters that are also valid JSON prefixes.
+		}
+	}
+
+	if (/^mermaid\s*\n/i.test(source)) {
+		source = source.replace(/^mermaid\s*\n/i, '').trim();
+	}
+	return source;
 }
 
 function enqueueRender(task) {
@@ -137,42 +165,100 @@ function enqueueRender(task) {
 	return result;
 }
 
-function createErrorElement(document, options) {
+function copyText(document, text) {
+	if (globalThis.navigator?.clipboard && typeof globalThis.navigator.clipboard.writeText === 'function') {
+		return globalThis.navigator.clipboard.writeText(text);
+	}
+	if (!document?.body || typeof document.execCommand !== 'function') {
+		return Promise.reject(new Error('Clipboard API is unavailable.'));
+	}
+
+	const textarea = document.createElement('textarea');
+	textarea.value = text;
+	textarea.setAttribute('readonly', '');
+	textarea.style.position = 'fixed';
+	textarea.style.opacity = '0';
+	document.body.appendChild(textarea);
+	textarea.select();
+	const copied = document.execCommand('copy');
+	textarea.remove();
+	return copied ? Promise.resolve() : Promise.reject(new Error('Copy command failed.'));
+}
+
+function appendErrorDetails(element, document, error, source, options) {
+	const message = String(error?.message || error || '').trim();
+	if (message) {
+		const reason = document.createElement('div');
+		reason.className = 'base3-chatbot-extension-error-reason';
+		reason.textContent = message;
+		element.appendChild(reason);
+	}
+	if (!source) return;
+
+	const details = document.createElement('details');
+	details.className = 'base3-chatbot-extension-error-details';
+	const summary = document.createElement('summary');
+	summary.textContent = getString(options, 'renderDetails', 'Technical details');
+	details.appendChild(summary);
+
+	const label = document.createElement('div');
+	label.textContent = getString(options, 'renderGeneratedCode', 'Generated extension code');
+	details.appendChild(label);
+
+	const pre = document.createElement('pre');
+	const code = document.createElement('code');
+	code.textContent = source;
+	pre.appendChild(code);
+	details.appendChild(pre);
+
+	const button = document.createElement('button');
+	button.type = 'button';
+	button.textContent = getString(options, 'renderCopyCode', 'Copy generated code');
+	if (typeof button.addEventListener === 'function') {
+		button.addEventListener('click', () => {
+			copyText(document, source).then(() => {
+				button.textContent = getString(options, 'renderCopiedCode', 'Copied');
+			}).catch(() => {
+				button.textContent = getString(options, 'renderCopyFailed', 'Copy failed');
+			});
+		});
+	}
+	details.appendChild(button);
+	element.appendChild(details);
+}
+
+function createErrorElement(document, error, source, options) {
 	const element = document.createElement('div');
 	element.className = 'base3-chatbot-mermaid base3-chatbot-mermaid-error';
 	element.setAttribute('role', 'alert');
-	element.textContent = getString(options, 'renderError', 'Diagram could not be rendered.');
+
+	const title = document.createElement('div');
+	title.textContent = getString(options, 'renderError', 'Mermaid diagram could not be rendered.');
+	element.appendChild(title);
+	appendErrorDetails(element, document, error, source, options);
 	return element;
 }
 
 async function renderCodeBlock(context, state, code) {
-	if (!code || code.dataset?.base3MermaidState) {
-		return;
-	}
+	if (!code || code.dataset?.base3MermaidState) return;
 
 	const container = code.parentElement;
-	if (!container || typeof container.replaceWith !== 'function') {
-		return;
-	}
+	if (!container || typeof container.replaceWith !== 'function') return;
 
+	const rawSource = String(code.textContent || '').replace(/\r\n?/g, '\n').trim();
+	const diagnosticSource = `\`\`\`mermaid\n${rawSource}\n\`\`\``;
 	const source = normalizeSource(code);
-	if (!source) {
-		return;
-	}
+	if (!source) return;
 
 	code.dataset.base3MermaidState = 'rendering';
 	const document = code.ownerDocument || getDocument(context);
 
 	try {
 		const mermaid = await resolveMermaid(context, state.options);
-		if (state.destroyed || code.isConnected === false) {
-			return;
-		}
+		if (state.destroyed || code.isConnected === false) return;
 
 		const result = await enqueueRender(() => mermaid.render(createRenderId(), source));
-		if (state.destroyed || code.isConnected === false) {
-			return;
-		}
+		if (state.destroyed || code.isConnected === false) return;
 
 		const svg = typeof result === 'string' ? result : String(result?.svg || '');
 		if (!svg.trim()) {
@@ -189,11 +275,10 @@ async function renderCodeBlock(context, state, code) {
 		if (result && typeof result.bindFunctions === 'function') {
 			result.bindFunctions(host);
 		}
-	} catch (error) {
-		if (state.destroyed || code.isConnected === false) {
-			return;
-		}
-		container.replaceWith(createErrorElement(document, state.options));
+	}
+	catch (error) {
+		if (state.destroyed || code.isConnected === false) return;
+		container.replaceWith(createErrorElement(document, error, diagnosticSource, state.options));
 		context.events.emit('chatbot:error', error);
 	}
 }

@@ -364,7 +364,7 @@ test('leaflet map plugin renders topographic opening maps and removes them on de
 	assert.equal(leaflet.maps[0].removed, true);
 });
 
-test('leaflet map plugin rejects arbitrary tile configuration and invalid coordinates', async () => {
+test('leaflet map plugin ignores arbitrary tile configuration but still rejects invalid coordinates', async () => {
 	const leaflet = createFakeLeaflet();
 	const setup = createContext(leaflet);
 	const first = createCodeBlock(setup.document, {
@@ -385,13 +385,39 @@ test('leaflet map plugin rejects arbitrary tile configuration and invalid coordi
 	});
 	await flushAsyncWork();
 
-	assert.equal(leaflet.maps.length, 0);
-	assert.equal(first.container.replacement.textContent, 'Map could not be rendered.');
-	assert.equal(second.container.replacement.textContent, 'Map could not be rendered.');
-	assert.equal(setup.errors.length, 2);
-	assert.match(setup.errors[0].message, /unsupported property "tile_url"/);
-	assert.match(setup.errors[1].message, /between -90 and 90/);
+	assert.equal(leaflet.maps.length, 1);
+	assert.ok(first.container.replacement);
+	assert.equal(first.container.replacement.className, 'base3-chatbot-map');
+	assert.equal(second.container.replacement.children[0].textContent, 'Map could not be rendered.');
+	assert.match(second.container.replacement.children[1].textContent, /between -90 and 90/);
+	assert.equal(setup.errors.length, 1);
+	assert.match(setup.errors[0].message, /between -90 and 90/);
 
+	LeafletMapPlugin.destroy(setup.context);
+});
+
+test('leaflet map plugin normalizes common LLM aliases and numeric strings', async () => {
+	const leaflet = createFakeLeaflet();
+	const setup = createContext(leaflet);
+	const block = createCodeBlock(setup.document, {
+		mapType: 'terrain',
+		markers: [{
+			latitude: '52.52',
+			longitude: '13.405',
+			name: 'Berlin',
+			text: 'Capital'
+		}]
+	});
+	const content = createContent(setup.document, [block]);
+
+	LeafletMapPlugin.install(setup.context);
+	setup.events.emit('message:completed', { content, interaction: false, error: false });
+	await flushAsyncWork();
+
+	assert.equal(leaflet.maps.length, 1);
+	assert.match(leaflet.maps[0].layers[0].url, /tile\.opentopomap\.org/);
+	assert.deepEqual(leaflet.maps[0].markers[0].coordinates, [52.52, 13.405]);
+	assert.deepEqual(setup.errors, []);
 	LeafletMapPlugin.destroy(setup.context);
 });
 

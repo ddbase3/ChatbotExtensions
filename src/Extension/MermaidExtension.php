@@ -69,7 +69,9 @@ flowchart TD
 The opening fence, the exact identifier `mermaid`, valid Mermaid source, and the closing fence are mandatory.
 Write raw Mermaid syntax inside the block. Do not wrap the source in JSON, HTML, quotes, or another nested code fence.
 Preserve real line breaks between Mermaid statements. Do not collapse the diagram onto one line.
-Use a Mermaid diagram type that matches the requested content. Keep node identifiers stable and simple, and put human-readable labels in the supported label syntax.
+Use a Mermaid diagram type that matches the requested content. Keep node identifiers short, ASCII-only, and simple. Put human-readable text in labels instead of using it as a node identifier.
+For flowchart labels containing spaces, punctuation, parentheses, colons, slashes, or other syntax-sensitive characters, prefer quoted labels such as `A["Review (required)"]`. Do not put Markdown formatting or nested code fences inside Mermaid labels.
+Keep one Mermaid statement per line where the diagram type allows it. Prefer simple syntax over advanced Mermaid features when both express the same diagram.
 Return one separate `mermaid` block per diagram. Normal explanatory prose may appear before or after the block when useful.
 Before finishing, verify that every diagram is syntactically complete and contains no Markdown outside the outer fence.
 PROMPT;

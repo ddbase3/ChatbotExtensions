@@ -21,6 +21,8 @@ final class ChartExtensionTest extends TestCase {
 		$this->assertStringContainsString('```base3-chart', $prompt);
 		$this->assertStringContainsString('Allowed chart types are `bar`, `line`, `pie`, and `doughnut`', $prompt);
 		$this->assertStringContainsString('Do not include colors', $prompt);
+		$this->assertStringContainsString('Keep `labels` and `datasets` at the top level', $prompt);
+		$this->assertStringContainsString('native Chart.js `data`/`options` configuration objects', $prompt);
 		$this->assertStringContainsString('all dataset lengths match the label count', $prompt);
 		$this->assertNotNull($plugin);
 		$this->assertSame('charts', $plugin->getName());

@@ -228,19 +228,30 @@ test('chart plugin renders restored line charts and adds only fixed line options
 	ChartPlugin.destroy(setup.context);
 });
 
-test('chart plugin rejects unsupported properties instead of forwarding Chart.js configuration', async () => {
-	let chartCount = 0;
+test('chart plugin tolerates native Chart.js wrappers and styling without forwarding them', async () => {
+	const configurations = [];
 	class FakeChart {
-		constructor() {
-			chartCount += 1;
+		constructor(canvas, configuration) {
+			configurations.push(configuration);
 		}
+		destroy() {}
 	}
 
 	const setup = createContext(FakeChart);
 	const block = createCodeBlock(setup.document, {
 		type: 'bar',
-		labels: ['A'],
-		datasets: [{ label: 'Value', data: [1], backgroundColor: 'red' }]
+		data: {
+			labels: ['A', 2026],
+			datasets: [{
+				label: 'Value',
+				data: ['1', '2.5'],
+				backgroundColor: 'red',
+				borderColor: 'blue'
+			}]
+		},
+		options: { plugins: { legend: { display: false } } },
+		xLabel: 'Category',
+		beginAtZero: 'true'
 	});
 	const content = createContent(setup.document, [block]);
 
@@ -252,12 +263,13 @@ test('chart plugin rejects unsupported properties instead of forwarding Chart.js
 	});
 	await flushAsyncWork();
 
-	assert.equal(chartCount, 0);
-	assert.ok(block.container.replacement);
-	assert.match(block.container.replacement.className, /base3-chatbot-chart-error/);
-	assert.equal(block.container.replacement.textContent, 'Chart could not be rendered.');
-	assert.equal(setup.errors.length, 1);
-	assert.match(setup.errors[0].message, /unsupported property "backgroundColor"/);
+	assert.equal(configurations.length, 1);
+	assert.deepEqual(configurations[0].data.labels, ['A', '2026']);
+	assert.deepEqual(configurations[0].data.datasets, [{ label: 'Value', data: [1, 2.5] }]);
+	assert.equal(configurations[0].options.scales.x.title.text, 'Category');
+	assert.equal(configurations[0].options.scales.y.beginAtZero, true);
+	assert.equal(Object.prototype.hasOwnProperty.call(configurations[0].data.datasets[0], 'backgroundColor'), false);
+	assert.deepEqual(setup.errors, []);
 
 	ChartPlugin.destroy(setup.context);
 });
@@ -291,8 +303,12 @@ test('chart plugin enforces matching dataset lengths and one dataset for pie cha
 	await flushAsyncWork();
 
 	assert.equal(chartCount, 0);
-	assert.equal(first.container.replacement.textContent, 'Chart could not be rendered.');
-	assert.equal(second.container.replacement.textContent, 'Chart could not be rendered.');
+	assert.equal(first.container.replacement.children[0].textContent, 'Chart.js chart could not be rendered.');
+	assert.match(first.container.replacement.children[1].textContent, /exactly 2 values/);
+	assert.equal(second.container.replacement.children[0].textContent, 'Chart.js chart could not be rendered.');
+	assert.match(second.container.replacement.children[1].textContent, /exactly one dataset/);
+	assert.match(first.container.replacement.children[2].children[2].children[0].textContent, /^```base3-chart/);
+	assert.match(first.container.replacement.children[2].children[2].children[0].textContent, /\"labels\":\[\"A\",\"B\"\]/);
 	assert.equal(setup.errors.length, 2);
 	assert.match(setup.errors[0].message, /exactly 2 values/);
 	assert.match(setup.errors[1].message, /exactly one dataset/);

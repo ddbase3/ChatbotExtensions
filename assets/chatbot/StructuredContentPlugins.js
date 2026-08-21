@@ -74,44 +74,102 @@ function ensureStyles(root) {
 	root.appendChild(style);
 }
 
-function parseBlock(code) {
-	const source = String(code?.textContent || '').trim();
-	if (!source) {
-		throw new Error('Structured chatbot block is empty.');
-	}
+function normalizeFencedSource(source, language) {
+	const normalized = String(source || '').replace(/\r\n?/g, '\n').trim();
+	const match = normalized.match(/^```([^\n`]*)\n([\s\S]*?)\n```$/);
+	if (!match) return normalized;
+	const fenceLanguage = String(match[1] || '').trim().toLowerCase();
+	if (fenceLanguage === '' || fenceLanguage === 'json' || fenceLanguage === language) return match[2].trim();
+	return normalized;
+}
 
-	const value = JSON.parse(source);
+function parseBlock(code, language) {
+	const source = normalizeFencedSource(code?.textContent || '', language);
+	if (!source) throw new Error('Structured chatbot block is empty.');
+
+	let value = JSON.parse(source);
+	if (typeof value === 'string' && value.trim().startsWith('{')) value = JSON.parse(value.trim());
 	if (!value || typeof value !== 'object' || Array.isArray(value)) {
 		throw new Error('Structured chatbot block must contain a JSON object.');
 	}
 	return value;
 }
 
-function replaceCodeBlocks(context, root, language, renderer, options) {
-	if (!root || typeof root.querySelectorAll !== 'function') {
-		return;
+function copyText(document, text) {
+	if (globalThis.navigator?.clipboard && typeof globalThis.navigator.clipboard.writeText === 'function') {
+		return globalThis.navigator.clipboard.writeText(text);
 	}
+	if (!document?.body || typeof document.execCommand !== 'function') {
+		return Promise.reject(new Error('Clipboard API is unavailable.'));
+	}
+	const textarea = document.createElement('textarea');
+	textarea.value = text;
+	textarea.setAttribute('readonly', '');
+	textarea.style.position = 'fixed';
+	textarea.style.opacity = '0';
+	document.body.appendChild(textarea);
+	textarea.select();
+	const copied = document.execCommand('copy');
+	textarea.remove();
+	return copied ? Promise.resolve() : Promise.reject(new Error('Copy command failed.'));
+}
+
+function createRenderError(document, language, error, diagnosticSource, options) {
+	const replacement = document.createElement('div');
+	replacement.className = 'base3-chatbot-extension-block base3-chatbot-extension-error';
+	replacement.setAttribute('role', 'alert');
+	const title = document.createElement('div');
+	title.textContent = getString(options, 'renderError', 'Content could not be rendered.');
+	replacement.appendChild(title);
+	const message = String(error?.message || error || '').trim();
+	if (message) {
+		const reason = document.createElement('div');
+		reason.textContent = `${language}: ${message}`;
+		replacement.appendChild(reason);
+	}
+	if (!source) return replacement;
+	const details = document.createElement('details');
+	const summary = document.createElement('summary');
+	summary.textContent = getString(options, 'renderDetails', 'Technical details');
+	details.appendChild(summary);
+	const label = document.createElement('div');
+	label.textContent = getString(options, 'renderGeneratedCode', 'Generated extension code');
+	details.appendChild(label);
+	const pre = document.createElement('pre');
+	const code = document.createElement('code');
+	code.textContent = source;
+	pre.appendChild(code);
+	details.appendChild(pre);
+	const button = document.createElement('button');
+	button.type = 'button';
+	button.textContent = getString(options, 'renderCopyCode', 'Copy generated code');
+	button.addEventListener('click', () => copyText(document, source).then(() => {
+		button.textContent = getString(options, 'renderCopiedCode', 'Copied');
+	}).catch(() => {
+		button.textContent = getString(options, 'renderCopyFailed', 'Copy failed');
+	}));
+	details.appendChild(button);
+	replacement.appendChild(details);
+	return replacement;
+}
+
+function replaceCodeBlocks(context, root, language, renderer, options) {
+	if (!root || typeof root.querySelectorAll !== 'function') return;
 
 	const selector = `pre > code.language-${language}`;
 	root.querySelectorAll(selector).forEach((code) => {
 		const container = code.parentElement;
-		if (!container || typeof container.replaceWith !== 'function') {
-			return;
-		}
+		if (!container || typeof container.replaceWith !== 'function') return;
+		const source = String(code.textContent || '').replace(/\r\n?/g, '\n').trim();
+		const diagnosticSource = `\`\`\`${language}\n${source}\n\`\`\``;
 
 		try {
-			const replacement = renderer(root.ownerDocument || globalThis.document, parseBlock(code), context, options);
-			if (replacement) {
-				container.replaceWith(replacement);
-			}
+			const replacement = renderer(root.ownerDocument || globalThis.document, parseBlock(code, language), context, options);
+			if (replacement) container.replaceWith(replacement);
 		}
 		catch (error) {
 			const document = code.ownerDocument || globalThis.document;
-			const replacement = document.createElement('div');
-			replacement.className = 'base3-chatbot-extension-block base3-chatbot-extension-error';
-			replacement.setAttribute('role', 'alert');
-			replacement.textContent = getString(options, 'renderError', 'Content could not be rendered.');
-			container.replaceWith(replacement);
+			container.replaceWith(createRenderError(document, language, error, diagnosticSource, options));
 			context.events.emit('chatbot:error', error);
 		}
 	});
