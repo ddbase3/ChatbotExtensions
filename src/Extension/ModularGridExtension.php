@@ -65,12 +65,14 @@ The complete table must use the exact fenced block identifier `base3-table`:
 ```
 The opening fence, the exact identifier `base3-table`, one JSON object, and the closing fence are mandatory.
 Required properties are `columns` and `rows`. Optional properties are `title`, `search`, `paging`, and `page_size`.
-`columns` must contain between 1 and 20 objects. Every column requires a unique technical `key` using letters, digits, and underscores, and a short plain-text `label`. The optional `sortable` property must be boolean.
-`rows` must contain between 1 and 200 objects. Row properties must use only declared column keys. Missing cells are allowed and render empty. Cell values may only be plain text, finite numbers, booleans, or null.
+`columns` must contain between 1 and 20 objects. Every column requires a unique technical `key` and a short plain-text `label`. The optional `sortable` property must be boolean.
+Every column `key` is an internal JSON property name and MUST match the exact ASCII pattern `^[A-Za-z][A-Za-z0-9_]{0,63}$`: 1 to 64 characters, the first character must be a letter A-Z or a-z, and every later character may only be a letter, digit, or underscore. Do not use spaces, hyphens, dots, colons, percent signs, non-ASCII letters, or a digit as the first character. Never copy a numeric heading directly into `key`; create a safe technical name instead, for example `2026` -> `year_2026`, `30 days` -> `days_30`, and `Completion %` -> `completion_percent`. Use the exact same declared keys as property names in every row.
+Column `label` values may contain the human-readable heading and must not exceed 120 characters. Optional `title` must be plain text and must not exceed 200 characters.
+`rows` must contain between 1 and 200 objects. Row properties must use only declared column keys. Missing cells are allowed and render empty. Cell values may only be plain text, finite numbers, booleans, or null. Plain-text cell values must not exceed 2000 characters.
 `search` and `paging` are booleans. `page_size` may only be 5, 10, 20, or 50.
 Do not include HTML, Markdown, JavaScript, callbacks, render functions, URLs, actions, plugins, Ajax configuration, nested objects, nested arrays, colors, CSS, or properties other than those documented above and `key`, `label`, plus `sortable` inside columns.
 Use normal explanatory prose outside the block when useful. When the user explicitly requests an interactive table, do not replace it with an ordinary Markdown table.
-Before finishing, verify that the JSON is valid, all column keys are unique, every row uses only declared keys, and every cell is a supported scalar value.
+Before finishing, verify that the JSON is valid, every column key matches `^[A-Za-z][A-Za-z0-9_]{0,63}$`, all column keys are unique, every row uses only declared keys, and every cell is a supported scalar value.
 PROMPT;
 	}
 

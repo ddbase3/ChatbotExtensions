@@ -20,6 +20,12 @@ final class ModularGridExtensionTest extends TestCase {
 		$this->assertSame('tables', $extension->id());
 		$this->assertStringContainsString('```base3-table', $prompt);
 		$this->assertStringContainsString('between 1 and 20 objects', $prompt);
+		$this->assertStringContainsString('^[A-Za-z][A-Za-z0-9_]{0,63}$', $prompt);
+		$this->assertStringContainsString('the first character must be a letter A-Z or a-z', $prompt);
+		$this->assertStringContainsString('`2026` -> `year_2026`', $prompt);
+		$this->assertStringContainsString('Use the exact same declared keys as property names in every row', $prompt);
+		$this->assertStringContainsString('must not exceed 120 characters', $prompt);
+		$this->assertStringContainsString('must not exceed 2000 characters', $prompt);
 		$this->assertStringContainsString('plain text, finite numbers, booleans, or null', $prompt);
 		$this->assertStringContainsString('Do not include HTML', $prompt);
 		$this->assertNotNull($plugin);
