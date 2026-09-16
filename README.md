@@ -64,3 +64,8 @@ The Leaflet extension accepts only a title, one of three fixed base-map types, a
 - Internet access to the configured public tile services when Leaflet maps are enabled
 
 The plugin is optional. If it is not installed, no response extension is discovered and the Chatbot continues without extension model instructions or browser code.
+
+## Documentation
+
+- [Frequently Asked Questions](docs/faq.md)
+- [Privacy and data processing](PRIVACY.md)
