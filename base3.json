@@ -1,0 +1,22 @@
+{
+	"manifestVersion": 1,
+	"name": "ChatbotExtensions",
+	"namespace": "ChatbotExtensions",
+	"version": "4.5.0",
+	"description": "Optional response renderers and client-side extensions for the modular BASE3 Chatbot.",
+	"license": "GPL-3.0-or-later",
+	"maintainers": [
+		{
+			"name": "Daniel Dahme",
+			"url": "https://www.base3.de",
+			"email": "info@base3.de"
+		}
+	],
+	"repository": "https://github.com/ddbase3/ChatbotExtensions",
+	"dependencies": {
+		"Base3Framework": ">=4.10.0",
+		"AssistantFoundation": ">=4.17.0",
+		"Chatbot": ">=4.23.0",
+		"ClientStack": ">=4.23.0"
+	}
+}
