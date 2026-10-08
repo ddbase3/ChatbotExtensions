@@ -54,7 +54,7 @@ abstract class AbstractChatbotExtension implements IAssistantResponseExtension, 
 			$language = 'en';
 		}
 
-		$basePath = defined('DIR_PLUGIN') ? DIR_PLUGIN . 'ChatbotExtensions/lang/Administration/' : '';
+		$basePath = dirname(__DIR__, 2) . '/lang/Administration/';
 		$files = $basePath === ''
 			? []
 			: array_values(array_unique([$basePath . $language . '.ini', $basePath . 'en.ini']));
@@ -82,7 +82,7 @@ abstract class AbstractChatbotExtension implements IAssistantResponseExtension, 
 			return $url;
 		}
 
-		$file = DIR_PLUGIN . 'ChatbotExtensions/' . substr($logicalPath, strlen($prefix));
+		$file = dirname(__DIR__, 2) . '/' . substr($logicalPath, strlen($prefix));
 		if (!is_file($file)) {
 			throw new RuntimeException('Chatbot extension asset is missing: ' . $file);
 		}

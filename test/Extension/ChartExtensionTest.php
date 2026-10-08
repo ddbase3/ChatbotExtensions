@@ -2,10 +2,6 @@
 
 namespace ChatbotExtensions\Test\Extension;
 
-if (!defined('DIR_PLUGIN')) {
-	define('DIR_PLUGIN', dirname(__DIR__, 3) . DIRECTORY_SEPARATOR);
-}
-
 use Base3\Api\IAssetResolver;
 use ChatbotExtensions\Extension\ChartExtension;
 use PHPUnit\Framework\TestCase;

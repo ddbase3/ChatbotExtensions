@@ -57,7 +57,7 @@ final class ChatbotExtensionsConfigDisplay implements IDisplay {
 			return '';
 		}
 
-		$this->view->setPath(DIR_PLUGIN . 'ChatbotExtensions');
+		$this->view->setPath(dirname(__DIR__, 2));
 		$this->view->setTemplate('Content/ChatbotExtensionsConfigDisplay.php');
 		$this->view->assign('title', $this->translate('title', 'Chatbot Extensions'));
 		$this->view->assign(
@@ -210,7 +210,7 @@ final class ChatbotExtensionsConfigDisplay implements IDisplay {
 	}
 
 	private function prepareTranslations(): void {
-		$this->view->setPath(DIR_PLUGIN . 'ChatbotExtensions');
+		$this->view->setPath(dirname(__DIR__, 2));
 		$this->view->loadBricks('Administration');
 		$translations = $this->view->getBricks('chatbot_extensions_administration');
 		$this->translations = is_array($translations) ? $translations : [];
