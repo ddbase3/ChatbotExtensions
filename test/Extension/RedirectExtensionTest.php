@@ -35,9 +35,4 @@ final class RedirectExtensionTest extends TestCase {
 	}
 }
 
-final class RedirectExtensionAssetResolver implements IAssetResolver {
-
-	public function resolve(string $path): string {
-		return '/resolved/' . $path;
-	}
-}
+require_once __DIR__ . '/RedirectExtensionAssetResolver.php';

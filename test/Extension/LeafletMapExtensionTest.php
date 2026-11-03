@@ -42,9 +42,4 @@ final class LeafletMapExtensionTest extends TestCase {
 	}
 }
 
-final class LeafletMapExtensionAssetResolver implements IAssetResolver {
-
-	public function resolve(string $path): string {
-		return '/resolved/' . $path;
-	}
-}
+require_once __DIR__ . '/LeafletMapExtensionAssetResolver.php';

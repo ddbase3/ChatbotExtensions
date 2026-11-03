@@ -37,9 +37,4 @@ final class MermaidExtensionTest extends TestCase {
 	}
 }
 
-final class MermaidExtensionAssetResolver implements IAssetResolver {
-
-	public function resolve(string $path): string {
-		return '/resolved/' . $path;
-	}
-}
+require_once __DIR__ . '/MermaidExtensionAssetResolver.php';
