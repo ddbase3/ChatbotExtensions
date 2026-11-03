@@ -16,6 +16,10 @@ namespace ChatbotExtensions\Content;
 use Base3\Api\IDisplay;
 use Base3\Api\IMvcView;
 use Base3\Api\IRequest;
+use Base3\Authorization\Api\IAuthorizationService;
+use Base3\Authorization\Dto\AuthorizationRequest;
+use Base3\Usermanager\Permission;
+use ChatbotExtensions\SettingsTab\ChatbotextensionsconfigSettingsTab;
 use Base3\LinkTarget\Api\ILinkTargetService;
 use Chatbot\Service\ChatbotExtensionService;
 use Throwable;
@@ -33,7 +37,8 @@ final class ChatbotExtensionsConfigDisplay implements IDisplay {
 		private readonly IMvcView $view,
 		private readonly IRequest $request,
 		private readonly ILinkTargetService $linkTargetService,
-		private readonly ChatbotExtensionService $extensionService
+		private readonly ChatbotExtensionService $extensionService,
+		private readonly IAuthorizationService $authorization
 	) {}
 
 	public static function getName(): string {
@@ -47,6 +52,13 @@ final class ChatbotExtensionsConfigDisplay implements IDisplay {
 
 	public function getOutput(string $out = 'html', bool $final = false): string {
 		$out = strtolower(trim($out));
+		if (!$this->authorization->decide(new AuthorizationRequest(
+			$this->authorization->getDefaultAuthority(),
+			Permission::for('feature', ChatbotextensionsconfigSettingsTab::getName())
+		))->isAllowed()) {
+			http_response_code(403);
+			return '';
+		}
 		$this->prepareTranslations();
 
 		if ($out === 'json') {

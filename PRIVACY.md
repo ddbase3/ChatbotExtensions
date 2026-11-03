@@ -281,3 +281,7 @@ Before production use, an installation that enables ChatbotExtensions should doc
 - whether exported CSV or JSON content can contain personal data,
 - how technical rendering errors are exposed to users,
 - any additional processing introduced by the surrounding Chatbot and assistant runtime.
+
+## Settings access control
+
+The Settings tab displays and edits the existing enabled-extension configuration. Its visibility and direct HTML/JSON endpoints require an explicit allow decision from the configured BASE3 `IAuthorizationService` for `chatbotextensionsconfigsettingstab`. No additional authorization database or stored copy of extension selections was introduced. Any configured external resources and user-visible rendered content retain the processing characteristics described above.

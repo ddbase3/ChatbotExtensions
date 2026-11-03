@@ -17,6 +17,7 @@
 		"Base3Framework": ">=4.10.0",
 		"AssistantFoundation": ">=4.17.0",
 		"Chatbot": ">=4.23.0",
-		"ClientStack": ">=4.23.0"
+		"ClientStack": ">=4.23.0",
+		"UiFoundation": ">=4.3.0"
 	}
 }

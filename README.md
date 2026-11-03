@@ -69,3 +69,7 @@ The plugin is optional. If it is not installed, no response extension is discove
 
 - [Frequently Asked Questions](docs/faq.md)
 - [Privacy and data processing](PRIVACY.md)
+
+## Discoverable Settings entry
+
+`ChatbotExtensions\SettingsTab\ChatbotextensionsconfigSettingsTab` contributes **Chatbot > Extensions** to the common two-level Settings navigation through `IClassMap`. The parent is the root `chatbotsettingstab` from the Chatbot plugin, which is an explicit dependency. The tab is also an `IFeature` with the default `administration` audience. `ChatbotExtensionsConfigDisplay` checks the same feature permission for direct HTML and JSON access. Translation keys for this entry live solely in `ChatbotExtensions/lang/Settings/`, in all supported languages. Existing enabled-extension state remains owned by `ChatbotExtensionService`.
