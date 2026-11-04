@@ -378,3 +378,56 @@ test('modular grid plugin ignores user and interaction messages', async () => {
 
 	ModularGridPlugin.destroy(setup.context);
 });
+
+test('modular grid rejects invalid column, row and option payloads before rendering', async () => {
+	const valid = { columns: [{ key: 'name', label: 'Name' }], rows: [{ name: 'Alice' }] };
+	const cases = [
+		['', /Table block is empty/],
+		['{invalid', /invalid JSON/],
+		['[]', /one JSON object/],
+		[{ ...valid, columns: [] }, /columns must contain between/],
+		[{ ...valid, columns: [null] }, /column 1 must be an object/],
+		[{ ...valid, columns: [{ key: 'name', label: '' }] }, /column 1 label is required/],
+		[{ ...valid, columns: [{ key: 'name', label: 'Name' }, { key: 'name', label: 'Name 2' }] }, /is duplicated/],
+		[{ ...valid, rows: [] }, /rows must contain between/],
+		[{ ...valid, rows: ['Alice'] }, /row 1 must be an object/],
+		[{ ...valid, rows: [{ name: 'a'.repeat(2001) }] }, /must not exceed 2000 characters/],
+		[{ ...valid, search: 'sometimes' }, /Table search must be boolean/],
+		[{ ...valid, paging: 1 }, /Table paging must be boolean/],
+		[{ ...valid, page_size: 11 }, /Table page_size must be/],
+		[{ ...valid, columns: [{ key: 'name', label: 'Name', sortable: 123 }] }, /sortable must be boolean/]
+	];
+	const setup = createContext();
+	const blocks = cases.map(([payload]) => createCodeBlock(setup.document, payload));
+	ModularGridPlugin.install(setup.context);
+	setup.events.emit('opening-message:loaded', { element: createContent(setup.document, blocks) });
+	await flushAsyncWork();
+
+	for (let index = 0; index < blocks.length; index += 1) {
+		const message = blocks[index].container.replacement?.children[1]?.textContent;
+		assert.match(message, cases[index][1], `case ${index}: ${message}`);
+		assert.equal(blocks[index].container.replacement.attributes.get('role'), 'alert');
+	}
+	assert.equal(fixtureModule.instances.length, 0);
+	assert.equal(setup.errors.length, cases.length);
+	ModularGridPlugin.destroy(setup.context);
+});
+
+test('modular grid validates configured module and stylesheet URLs', async () => {
+	const valid = { columns: [{ key: 'name', label: 'Name' }], rows: [{ name: 'Alice' }] };
+	for (const [options, message] of [
+		[{ moduleUrl: '' }, /requires pluginOptions.moduleUrl/],
+		[{ styleUrl: '' }, /requires pluginOptions.styleUrl/],
+		[{ moduleUrl: 'data:text/javascript,export default {}' }, /does not export ModularGrid/]
+	]) {
+		const setup = createContext(options);
+		const block = createCodeBlock(setup.document, valid);
+		ModularGridPlugin.install(setup.context);
+		setup.events.emit('message:completed', { content: createContent(setup.document, [block]), interaction: false, error: false });
+		await flushAsyncWork();
+		assert.equal(setup.errors.length, 1);
+		assert.match(setup.errors[0].message, message);
+		assert.equal(block.container.replacement.attributes.get('role'), 'alert');
+		ModularGridPlugin.destroy(setup.context);
+	}
+});

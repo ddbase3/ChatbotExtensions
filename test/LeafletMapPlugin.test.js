@@ -450,3 +450,55 @@ test('leaflet map plugin ignores interaction responses and hydrated user message
 
 	LeafletMapPlugin.destroy(setup.context);
 });
+
+test('leaflet map rejects malformed maps and invalid point data without rendering markers', async () => {
+	const valid = { points: [{ lat: 52.52, lng: 13.4, label: 'Berlin' }] };
+	const cases = [
+		['', /Map block is empty/],
+		['{invalid', /invalid JSON/],
+		['[]', /one JSON object/],
+		[{ ...valid, map_type: 'custom' }, /map_type must be/],
+		[{ ...valid, map_type: false }, /map_type must be/],
+		[{ ...valid, points: [] }, /points must contain between/],
+		[{ ...valid, points: [null] }, /point 1 must be an object/],
+		[{ ...valid, points: [{ lat: 91, lng: 13.4, label: 'Berlin' }] }, /lat must be between -90 and 90/],
+		[{ ...valid, points: [{ lat: 52.52, lng: 181, label: 'Berlin' }] }, /lng must be between -180 and 180/],
+		[{ ...valid, points: [{ lat: 'invalid', lng: 13.4, label: 'Berlin' }] }, /lat must be a finite number/],
+		[{ ...valid, points: [{ lat: 52.52, lng: 13.4, label: '' }] }, /label is required/],
+		[{ ...valid, points: [{ lat: 52.52, lng: 13.4, label: 'Berlin', description: [] }] }, /description must be Markdown text/],
+		[{ ...valid, title: 123 }, /Map title must be plain text/]
+	];
+	const leaflet = createFakeLeaflet();
+	const setup = createContext(leaflet);
+	const blocks = cases.map(([payload]) => createCodeBlock(setup.document, payload));
+	LeafletMapPlugin.install(setup.context);
+	setup.events.emit('opening-message:loaded', { element: createContent(setup.document, blocks) });
+	await flushAsyncWork();
+
+	for (let index = 0; index < cases.length; index += 1) {
+		const message = blocks[index].container.replacement?.children[1]?.textContent;
+		assert.match(message, cases[index][1], `case ${index}: ${message}`);
+		assert.equal(blocks[index].container.replacement.attributes.get('role'), 'alert');
+	}
+	assert.equal(leaflet.maps.length, 0);
+	assert.equal(setup.errors.length, cases.length);
+	LeafletMapPlugin.destroy(setup.context);
+});
+
+test('leaflet map rejects missing JavaScript and stylesheet dependencies', async () => {
+	const valid = { points: [{ lat: 52.52, lng: 13.4, label: 'Berlin' }] };
+	for (const [override, expected] of [
+		[{ scriptUrl: '' }, /requires pluginOptions.scriptUrl/],
+		[{ styleUrl: '' }, /requires pluginOptions.styleUrl/]
+	]) {
+		const setup = createContext(null);
+		setup.context.getPluginOptions = () => ({ scriptUrl: '/assets/leaflet/leaflet.js', styleUrl: '/assets/leaflet/leaflet.css', ...override });
+		const block = createCodeBlock(setup.document, valid);
+		LeafletMapPlugin.install(setup.context);
+		setup.events.emit('message:completed', { content: createContent(setup.document, [block]), error: false, interaction: false });
+		await flushAsyncWork();
+		assert.equal(setup.errors.length, 1);
+		assert.match(setup.errors[0].message, expected);
+		LeafletMapPlugin.destroy(setup.context);
+	}
+});

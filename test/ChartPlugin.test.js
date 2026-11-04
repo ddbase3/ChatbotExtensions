@@ -33,6 +33,7 @@ class FakeElement {
 		this.parentElement = null;
 		this.isConnected = true;
 		this.replacement = null;
+		this.listeners = new Map();
 	}
 
 	appendChild(child) {
@@ -44,6 +45,14 @@ class FakeElement {
 
 	setAttribute(name, value) {
 		this.attributes.set(name, String(value));
+	}
+
+	addEventListener(name, callback) {
+		this.listeners.set(name, callback);
+	}
+
+	emit(name) {
+		this.listeners.get(name)?.();
 	}
 
 	querySelector(selector) {
@@ -349,4 +358,109 @@ test('chart plugin ignores user and interaction messages', async () => {
 	assert.equal(block.container.replacement, null);
 
 	ChartPlugin.destroy(setup.context);
+});
+
+test('chart plugin rejects unsupported types and malformed data with a readable error', async () => {
+	const valid = { type: 'bar', labels: ['A'], datasets: [{ label: 'Value', data: [1] }] };
+	const cases = [
+		['', /Chart block is empty/],
+		['not json', /invalid JSON/],
+		['[]', /one JSON object/],
+		[{ ...valid, type: 'scatter' }, /Chart type must/],
+		[{ ...valid, labels: [] }, /between 1 and 100/],
+		[{ ...valid, labels: [null] }, /Chart label 1 is required/],
+		[{ ...valid, labels: ['A'.repeat(201)] }, /200 characters/],
+		[{ ...valid, datasets: [] }, /between 1 and 6/],
+		[{ ...valid, datasets: [null] }, /must be an object/],
+		[{ ...valid, datasets: [{ data: [1] }] }, /label is required/],
+		[{ ...valid, datasets: [{ label: 'Value', data: ['not-a-number'] }] }, /finite number/],
+		[{ ...valid, datasets: [{ label: 'Value', data: ['Infinity'] }] }, /finite number/],
+		[{ ...valid, stacked: true, type: 'line' }, /Stacked mode is only supported/],
+		[{ ...valid, begin_at_zero: 'sometimes' }, /must be boolean/],
+		[{ ...valid, title: 45 }, /plain text/],
+		[{ ...valid, x_label: 'X'.repeat(121) }, /120 characters/],
+		[JSON.stringify('{invalid nested'), /one JSON object/]
+	];
+	const setup = createContext(null);
+	const blocks = cases.map(([payload]) => createCodeBlock(setup.document, payload));
+	ChartPlugin.install(setup.context);
+	setup.events.emit('opening-message:loaded', { element: createContent(setup.document, blocks) });
+	await flushAsyncWork();
+
+	for (let index = 0; index < blocks.length; index += 1) {
+		const message = blocks[index].container.replacement?.children[1]?.textContent;
+		assert.match(message, cases[index][1], `case ${index}: ${message}`);
+		assert.equal(blocks[index].container.replacement.attributes.get('role'), 'alert');
+	}
+	assert.equal(setup.errors.length, cases.length);
+	ChartPlugin.destroy(setup.context);
+});
+
+test('chart plugin normalizes numeric string values and boolean labels in pie charts', async () => {
+	const configs = [];
+	class FakeChart {
+		constructor(canvas, config) { configs.push(config); }
+		destroy() {}
+	}
+	const setup = createContext(FakeChart);
+	const block = createCodeBlock(setup.document, {
+		type: 'donut',
+		labels: [2026, false, true],
+		datasets: [{ label: 'Numbers', data: ['2.5', '-3E2', '+.25'] }],
+		beginAtZero: 'true'
+	});
+	ChartPlugin.install(setup.context);
+	setup.events.emit('message:completed', { content: createContent(setup.document, [block]), interaction: false, error: false });
+	await flushAsyncWork();
+
+	assert.equal(configs.length, 1);
+	assert.equal(configs[0].type, 'doughnut');
+	assert.deepEqual(configs[0].data.labels, ['2026', 'false', 'true']);
+	assert.deepEqual(configs[0].data.datasets[0].data, [2.5, -300, 0.25]);
+	assert.equal(configs[0].options.plugins.legend.display, true);
+	assert.equal(configs[0].options.scales, undefined);
+	ChartPlugin.destroy(setup.context);
+});
+
+test('chart plugin dynamically loads Chart.js when the module is unavailable', async () => {
+	let chart = null;
+	const setup = createContext(null);
+	setup.context.resolveGlobal = () => chart;
+	setup.context.getPluginOptions = () => ({ scriptUrl: '/assets/chart/dynamic-test.js' });
+	const block = createCodeBlock(setup.document, { type: 'bar', labels: ['One'], datasets: [{ label: 'Value', data: [3] }] });
+	ChartPlugin.install(setup.context);
+	setup.events.emit('message:completed', { content: createContent(setup.document, [block]), interaction: false, error: false });
+	await flushAsyncWork();
+
+	const script = setup.document.head.children.find((child) => child.tagName === 'SCRIPT');
+	assert.ok(script);
+	assert.equal(script.src, '/assets/chart/dynamic-test.js');
+	chart = class FakeChart { constructor() {} destroy() {} };
+	script.emit('load');
+	await flushAsyncWork();
+	assert.equal(script.dataset.loaded, '1');
+	assert.match(block.container.replacement.className, /base3-chatbot-chart/);
+	assert.deepEqual(setup.errors, []);
+	ChartPlugin.destroy(setup.context);
+});
+
+test('chart plugin reports loading errors and unavailable Chart.js globals', async () => {
+	for (const [suffix, loadEvent, expectation] of [
+		['error', 'error', /Unable to load script/],
+		['missing-global', 'load', /did not expose its global API/]
+	]) {
+		const setup = createContext(null);
+		setup.context.getPluginOptions = () => ({ scriptUrl: `/assets/chart/${suffix}.js` });
+		const block = createCodeBlock(setup.document, { type: 'bar', labels: ['A'], datasets: [{ label: 'Series', data: [1] }] });
+		ChartPlugin.install(setup.context);
+		setup.events.emit('message:completed', { content: createContent(setup.document, [block]), interaction: false, error: false });
+		await flushAsyncWork();
+		setup.document.head.children.find((child) => child.tagName === 'SCRIPT').emit(loadEvent);
+		await flushAsyncWork();
+
+		assert.equal(setup.errors.length, 1);
+		assert.match(setup.errors[0].message, expectation);
+		assert.equal(block.container.replacement.attributes.get('role'), 'alert');
+		ChartPlugin.destroy(setup.context);
+	}
 });

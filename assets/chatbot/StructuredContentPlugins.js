@@ -127,6 +127,7 @@ function createRenderError(document, language, error, diagnosticSource, options)
 		reason.textContent = `${language}: ${message}`;
 		replacement.appendChild(reason);
 	}
+	const source = String(diagnosticSource || '').trim();
 	if (!source) return replacement;
 	const details = document.createElement('details');
 	const summary = document.createElement('summary');

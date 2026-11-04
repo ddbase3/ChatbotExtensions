@@ -17,6 +17,8 @@ class FakeElement {
 		this.className = '';
 		this.textContent = '';
 		this.parentElement = null;
+		this.listeners = new Map();
+		this.style = {};
 	}
 
 	appendChild(child) {
@@ -33,10 +35,28 @@ class FakeElement {
 		this.attributes.set(name, String(value));
 	}
 
-	addEventListener() {}
+	addEventListener(name, listener) {
+		this.listeners.set(name, listener);
+	}
+
+	click() {
+		this.listeners.get('click')?.();
+	}
+
+	select() {}
+
+	remove() {
+		if (this.parentElement) {
+			this.parentElement.children = this.parentElement.children.filter((element) => element !== this);
+		}
+	}
 }
 
 class FakeDocument {
+	constructor() {
+		this.body = new FakeElement('body');
+	}
+
 	createElement(tagName) {
 		return new FakeElement(tagName);
 	}
@@ -54,6 +74,7 @@ function createContext(blockLanguage, payload, executeCommand = null) {
 	};
 	const code = {
 		textContent: JSON.stringify(payload),
+		ownerDocument: document,
 		parentElement: container
 	};
 	const content = {
@@ -94,6 +115,8 @@ function createContext(blockLanguage, payload, executeCommand = null) {
 		context,
 		listeners,
 		content,
+		code,
+		document,
 		getCommands: () => commands,
 		getReplacement: () => replacement
 	};
@@ -251,4 +274,125 @@ test('accordion plugin renders item Markdown through the shared Markdown command
 	assert.equal(content.className, 'base3-chatbot-accordion-content');
 	assert.equal(content.children[0], markdownFragment);
 	AccordionPlugin.destroy(setup.context);
+});
+
+test('invalid structured blocks display the original source, an accessible error and diagnostics', () => {
+	const cases = [
+		[CalloutPlugin, 'base3-callout', { type: 'info', text: '' }, /Callout requires text/],
+		[KpiCardsPlugin, 'base3-kpi', { items: [] }, /KPI cards requires between/],
+		[KpiCardsPlugin, 'base3-kpi', { items: [{ label: 'Users' }] }, /Every KPI card requires label and value/],
+		[ProgressPlugin, 'base3-progress', { items: [{ label: 'Tasks', value: 5, max: 4 }] }, /Every progress item requires/],
+		[ProgressPlugin, 'base3-progress', { items: [{ label: 'Tasks', value: 0, max: 0 }] }, /Every progress item requires/],
+		[TimelinePlugin, 'base3-timeline', { items: [{ title: '' }] }, /Every timeline item requires a title/],
+		[AccordionPlugin, 'base3-accordion', { items: [{ title: 'Install', markdown: '' }] }, /Every accordion item requires/],
+		[DataDownloadPlugin, 'base3-download', { format: 'pdf', content: 'unsupported' }, /Data download requires csv or json/],
+		[DataDownloadPlugin, 'base3-download', { format: 'csv', content: {} }, /CSV download content must be a string/]
+	];
+
+	for (const [plugin, language, payload, reason] of cases) {
+		const setup = createContext(language, payload);
+		plugin.install(setup.context);
+		assert.throws(() => completeMessage(setup), reason);
+		const replacement = setup.getReplacement();
+		assert.ok(replacement);
+		assert.match(replacement.className, /base3-chatbot-extension-error/);
+		assert.equal(replacement.attributes.get('role'), 'alert');
+		assert.match(replacement.children[1].textContent, reason);
+		const details = replacement.children[2];
+		assert.equal(details.tagName, 'DETAILS');
+		assert.equal(details.children[2].children[0].textContent, `\`\`\`${language}\n${JSON.stringify(payload)}\n\`\`\``);
+		plugin.destroy(setup.context);
+	}
+});
+
+test('structured plugin rejects empty, malformed, array and scalar input without losing diagnostics', () => {
+	for (const source of ['', '{bad json', '[]', '42', 'null', '"text"']) {
+		const setup = createContext('base3-callout', { text: 'unused' });
+		setup.code.textContent = source;
+		CalloutPlugin.install(setup.context);
+		assert.throws(() => completeMessage(setup));
+		assert.equal(setup.getReplacement().attributes.get('role'), 'alert');
+		CalloutPlugin.destroy(setup.context);
+	}
+});
+
+test('structured plugin accepts a fenced JSON object and a double-serialized object', () => {
+	for (const source of [
+		'```json\n{"type":"success","text":"All checks passed"}\n```',
+		'```base3-callout\n{"type":"success","text":"All checks passed"}\n```',
+		JSON.stringify(JSON.stringify({ type: 'success', text: 'All checks passed' }))
+	]) {
+		const setup = createContext('base3-callout', {});
+		setup.code.textContent = source;
+		CalloutPlugin.install(setup.context);
+		const rendered = completeMessage(setup);
+		assert.match(rendered.className, /base3-chatbot-callout-success/);
+		assert.equal(rendered.children[0].className, 'base3-chatbot-callout-text');
+		CalloutPlugin.destroy(setup.context);
+	}
+});
+
+test('structured renderer ignores interaction messages and non-assistant hydrated messages', () => {
+	const setup = createContext('base3-kpi', { items: [{ label: 'Users', value: '3' }] });
+	KpiCardsPlugin.install(setup.context);
+	setup.listeners.get('message:completed')({ content: setup.content, interaction: true, error: false });
+	setup.listeners.get('message:completed')({ content: setup.content, interaction: false, error: true });
+	setup.listeners.get('message:hydrated')({ content: setup.content, role: 'user', error: false });
+	setup.listeners.get('message:hydrated')({ content: setup.content, role: 'assistant', error: true });
+	assert.equal(setup.getReplacement(), null);
+	setup.listeners.get('message:hydrated')({ content: setup.content, role: 'assistant', error: false });
+	assert.ok(setup.getReplacement());
+	KpiCardsPlugin.destroy(setup.context);
+});
+
+test('progress uses a numeric fallback and valid boundaries', () => {
+	const setup = createContext('base3-progress', { items: [
+		{ label: 'Start', value: 0, max: 10 },
+		{ label: 'Complete', value: 10, max: 10 }
+	] });
+	ProgressPlugin.install(setup.context);
+	const rendered = completeMessage(setup);
+	assert.equal(rendered.children[0].children[0].children[1].textContent, '0/10');
+	assert.equal(rendered.children[1].children[0].children[1].textContent, '10/10');
+	assert.equal(rendered.children[1].children[1].value, 10);
+	assert.equal(rendered.children[1].children[1].max, 10);
+	assert.equal(rendered.children[0].children[1].attributes.get('aria-label'), 'Start');
+	ProgressPlugin.destroy(setup.context);
+});
+
+test('data download sanitizes filenames and creates a local CSV or JSON blob on click', () => {
+	for (const [payload, filename, mime] of [
+		[{ filename: '../../report.csv', format: 'csv', content: 'a,b\n1,2' }, 'report.csv', 'text/csv;charset=utf-8'],
+		[{ filename: 'subdir\\report', format: 'json', content: { count: 2 } }, 'report.json', 'application/json;charset=utf-8']
+	]) {
+		const setup = createContext('base3-download', payload);
+		let createdBlob = null;
+		let revoked = '';
+		let clicked = null;
+		setup.document.defaultView = {
+			URL: {
+				createObjectURL(blob) { createdBlob = blob; return 'blob:test'; },
+				revokeObjectURL(url) { revoked = url; }
+			},
+			setTimeout(callback) { callback(); }
+		};
+		const originalCreateElement = setup.document.createElement.bind(setup.document);
+		setup.document.createElement = (tagName) => {
+			const node = originalCreateElement(tagName);
+			if (tagName === 'a') node.click = () => { clicked = node; };
+			return node;
+		};
+		DataDownloadPlugin.install(setup.context);
+		const rendered = completeMessage(setup);
+		const button = rendered.children[1];
+		assert.equal(rendered.children[0].textContent, filename);
+		assert.match(button.textContent, /Download/);
+		button.click();
+		assert.equal(createdBlob.type, mime);
+		assert.equal(clicked.download, filename);
+		assert.equal(clicked.href, 'blob:test');
+		assert.equal(revoked, 'blob:test');
+		assert.deepEqual(setup.document.body.children, []);
+		DataDownloadPlugin.destroy(setup.context);
+	}
 });

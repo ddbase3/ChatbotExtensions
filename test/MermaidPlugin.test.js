@@ -34,6 +34,12 @@ class FakeElement {
 		this.parentElement = null;
 		this.isConnected = true;
 		this.replacement = null;
+		this.listeners = new Map();
+		this.classes = new Set();
+		this.classList = {
+			contains: (name) => this.classes.has(name),
+			add: (name) => this.classes.add(name)
+		};
 	}
 
 	appendChild(child) {
@@ -41,6 +47,18 @@ class FakeElement {
 		child.parentElement = this;
 		child.ownerDocument ||= this.ownerDocument;
 		return child;
+	}
+
+	append(...children) {
+		for (const child of children) this.appendChild(child);
+	}
+
+	addEventListener(name, handler) {
+		this.listeners.set(name, handler);
+	}
+
+	emit(name) {
+		this.listeners.get(name)?.();
 	}
 
 	setAttribute(name, value) {
@@ -309,5 +327,95 @@ test('mermaid plugin ignores user and interaction messages', async () => {
 	assert.equal(renderCount, 0);
 	assert.equal(block.container.replacement, null);
 
+	MermaidPlugin.destroy(setup.context);
+});
+
+test('mermaid reports missing script URLs without inserting a broken diagram', async () => {
+	const setup = createContext(null);
+	setup.context.getPluginOptions = () => ({ scriptUrl: '' });
+	const block = createCodeBlock(setup.document, 'flowchart TD\n    A --> B');
+	const content = createContent(setup.document, [block]);
+	MermaidPlugin.install(setup.context);
+	setup.events.emit('message:completed', { content, interaction: false, error: false });
+	await flushAsyncWork();
+
+	assert.equal(setup.errors.length, 1);
+	assert.match(setup.errors[0].message, /requires pluginOptions\.mermaid\.scriptUrl/);
+	assert.match(block.container.replacement.className, /base3-chatbot-mermaid-error/);
+	assert.equal(block.container.replacement.attributes.get('role'), 'alert');
+	MermaidPlugin.destroy(setup.context);
+});
+
+test('mermaid renders after dynamically loading the configured script', async () => {
+	let resolved = null;
+	const diagram = { initialize() {}, async render() { return '<svg data-dynamic="yes"></svg>'; } };
+	const setup = createContext(null);
+	setup.context.resolveGlobal = () => resolved;
+	setup.context.getPluginOptions = () => ({ scriptUrl: '/assets/mermaid/dynamic-test.js' });
+	const block = createCodeBlock(setup.document, 'graph TD\n    A --> B');
+	const content = createContent(setup.document, [block]);
+	MermaidPlugin.install(setup.context);
+	setup.events.emit('message:completed', { content, interaction: false, error: false });
+	await flushAsyncWork();
+
+	const script = setup.document.head.children.find((element) => element.tagName === 'SCRIPT');
+	assert.ok(script);
+	assert.equal(script.src, '/assets/mermaid/dynamic-test.js');
+	assert.equal(script.dataset.base3ModuleResource, script.src);
+	resolved = diagram;
+	script.emit('load');
+	await flushAsyncWork();
+
+	assert.equal(script.dataset.loaded, '1');
+	assert.match(block.container.replacement.innerHTML, /data-dynamic/);
+	assert.deepEqual(setup.errors, []);
+	MermaidPlugin.destroy(setup.context);
+});
+
+test('mermaid reports script loading failures through the existing alert UI', async () => {
+	const setup = createContext(null);
+	setup.context.getPluginOptions = () => ({ scriptUrl: '/assets/mermaid/failed-test.js' });
+	const block = createCodeBlock(setup.document, 'flowchart TD\n    A --> B');
+	const content = createContent(setup.document, [block]);
+	MermaidPlugin.install(setup.context);
+	setup.events.emit('message:completed', { content, interaction: false, error: false });
+	await flushAsyncWork();
+	setup.document.head.children.find((element) => element.tagName === 'SCRIPT').emit('error');
+	await flushAsyncWork();
+
+	assert.equal(setup.errors.length, 1);
+	assert.match(setup.errors[0].message, /Unable to load script/);
+	assert.match(block.container.replacement.className, /base3-chatbot-mermaid-error/);
+	MermaidPlugin.destroy(setup.context);
+});
+
+test('mermaid rejects empty SVG output and preserves original source for diagnostics', async () => {
+	const setup = createContext({ initialize() {}, async render() { return { svg: ' ' }; } });
+	const block = createCodeBlock(setup.document, 'flowchart LR\n    A --> B');
+	const content = createContent(setup.document, [block]);
+	MermaidPlugin.install(setup.context);
+	setup.events.emit('message:completed', { content, interaction: false, error: false });
+	await flushAsyncWork();
+
+	assert.equal(setup.errors.length, 1);
+	assert.match(setup.errors[0].message, /empty diagram/);
+	assert.equal(block.container.replacement.children[2].children[2].children[0].textContent, '```mermaid\nflowchart LR\n    A --> B\n```');
+	MermaidPlugin.destroy(setup.context);
+});
+
+test('mermaid shows a pending indicator only once and skips empty sources', async () => {
+	let calls = 0;
+	const setup = createContext({ initialize() {}, async render() { calls += 1; return '<svg></svg>'; } });
+	const block = createCodeBlock(setup.document, '   ');
+	const content = createContent(setup.document, [block]);
+	MermaidPlugin.install(setup.context);
+	setup.events.emit('message:rendered', { content, error: false });
+	setup.events.emit('message:rendered', { content, error: false });
+	assert.equal(block.container.children.length, 2);
+	assert.equal(block.container.children[1].textContent, 'Content is being created...');
+	setup.events.emit('message:completed', { content, interaction: false, error: false });
+	await flushAsyncWork();
+	assert.equal(calls, 0);
+	assert.equal(block.container.replacement, null);
 	MermaidPlugin.destroy(setup.context);
 });
