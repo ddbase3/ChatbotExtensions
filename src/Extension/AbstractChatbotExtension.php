@@ -11,11 +11,11 @@
  * https://www.gnu.org/licenses/gpl-3.0.en.html
  **********************************************************************/
 
-namespace ChatbotExtensions\Extension;
+namespace Base3\ChatbotExtensions\Extension;
 
-use AssistantFoundation\Api\IAssistantResponseExtension;
-use AssistantFoundation\Api\IAssistantResponseExtensionExamples;
-use Base3\Api\IAssetResolver;
+use Base3\AssistantFoundation\Api\IAssistantResponseExtension;
+use Base3\AssistantFoundation\Api\IAssistantResponseExtensionExamples;
+use Base3\CoreFoundation\Api\IAssetResolver;
 use RuntimeException;
 
 abstract class AbstractChatbotExtension implements IAssistantResponseExtension, IAssistantResponseExtensionExamples {

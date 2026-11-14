@@ -11,9 +11,9 @@
  * https://www.gnu.org/licenses/gpl-3.0.en.html
  **********************************************************************/
 
-namespace ChatbotExtensions\Extension;
+namespace Base3\ChatbotExtensions\Extension;
 
-use AssistantFoundation\Dto\AssistantResponseClientPlugin;
+use Base3\AssistantFoundation\Dto\AssistantResponseClientPlugin;
 
 final class MathJaxExtension extends AbstractChatbotExtension {
 

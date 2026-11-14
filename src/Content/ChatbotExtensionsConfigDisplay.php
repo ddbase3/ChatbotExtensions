@@ -11,17 +11,17 @@
  * https://www.gnu.org/licenses/gpl-3.0.en.html
  **********************************************************************/
 
-namespace ChatbotExtensions\Content;
+namespace Base3\ChatbotExtensions\Content;
 
-use Base3\Api\IDisplay;
-use Base3\Api\IMvcView;
-use Base3\Api\IRequest;
-use Base3\Authorization\Api\IAuthorizationService;
-use Base3\Authorization\Dto\AuthorizationRequest;
-use Base3\Usermanager\Permission;
-use ChatbotExtensions\SettingsTab\ChatbotextensionsconfigSettingsTab;
-use Base3\LinkTarget\Api\ILinkTargetService;
-use Chatbot\Service\ChatbotExtensionService;
+use Base3\CoreFoundation\Api\IDisplay;
+use Base3\CoreFoundation\Api\IMvcView;
+use Base3\CoreFoundation\Api\IRequest;
+use Base3\CoreFoundation\Authorization\Api\IAuthorizationService;
+use Base3\CoreFoundation\Authorization\Dto\AuthorizationRequest;
+use Base3\CoreFoundation\Usermanager\Permission;
+use Base3\ChatbotExtensions\SettingsTab\ChatbotextensionsconfigSettingsTab;
+use Base3\CoreFoundation\LinkTarget\Api\ILinkTargetService;
+use Base3\Chatbot\Service\ChatbotExtensionService;
 use Throwable;
 
 final class ChatbotExtensionsConfigDisplay implements IDisplay {

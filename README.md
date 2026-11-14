@@ -2,7 +2,7 @@
 
 Optional response renderers for the modular BASE3 Chatbot.
 
-Every capability is a separately discoverable `AssistantFoundation\Api\IAssistantResponseExtension` and can be enabled in the Base3IliasLab administration under **Chatbot → Extensions**. All capabilities are disabled by default.
+Every capability is a separately discoverable `Base3\AssistantFoundation\Api\IAssistantResponseExtension` and can be enabled in the Base3IliasLab administration under **Chatbot → Extensions**. All capabilities are disabled by default.
 
 Included capabilities:
 
@@ -40,7 +40,7 @@ Markdown handling follows one rule across extensions: descriptive content fields
 
 `RedirectExtension` combines a persistent link renderer with a one-time navigation action. It accepts only a `base3-redirect` JSON block containing a same-origin URL and a plain-text label. Freshly completed assistant messages render the labeled link and navigate once; restored conversation messages render the same clickable link without triggering navigation.
 
-Extensions are discovered through `AssistantFoundation\Api\IAssistantResponseExtension` and activated through the central `chatbot-extensions/default` settings record.
+Extensions are discovered through `Base3\AssistantFoundation\Api\IAssistantResponseExtension` and activated through the central `chatbot-extensions/default` settings record.
 
 ## Library-backed extensions
 
@@ -72,4 +72,4 @@ The plugin is optional. If it is not installed, no response extension is discove
 
 ## Discoverable Settings entry
 
-`ChatbotExtensions\SettingsTab\ChatbotextensionsconfigSettingsTab` contributes **Chatbot > Extensions** to the common two-level Settings navigation through `IClassMap`. The parent is the root `chatbotsettingstab` from the Chatbot plugin, which is an explicit dependency. The tab is also an `IFeature` with the default `administration` audience. `ChatbotExtensionsConfigDisplay` checks the same feature permission for direct HTML and JSON access. Translation keys for this entry live solely in `ChatbotExtensions/lang/Settings/`, in all supported languages. Existing enabled-extension state remains owned by `ChatbotExtensionService`.
+`Base3\ChatbotExtensions\SettingsTab\ChatbotextensionsconfigSettingsTab` contributes **Chatbot > Extensions** to the common two-level Settings navigation through `IClassMap`. The parent is the root `chatbotsettingstab` from the Chatbot plugin, which is an explicit dependency. The tab is also an `IFeature` with the default `administration` audience. `ChatbotExtensionsConfigDisplay` checks the same feature permission for direct HTML and JSON access. Translation keys for this entry live solely in `ChatbotExtensions/lang/Settings/`, in all supported languages. Existing enabled-extension state remains owned by `ChatbotExtensionService`.

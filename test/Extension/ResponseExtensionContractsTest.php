@@ -1,23 +1,38 @@
 <?php declare(strict_types=1);
 
-namespace ChatbotExtensions\Test\Extension;
+/***********************************************************************
+ * This file is part of ChatbotExtensions for BASE3 Framework.
+ *
+ * ChatbotExtensions provides optional response renderers for BASE3.
+ * It extends the modular Chatbot client with additional output formats.
+ * The extensions reuse existing Chatbot and runtime service contracts.
+ *
+ * Developed by Daniel Dahme
+ * Licensed under GPL-3.0
+ * https://www.gnu.org/licenses/gpl-3.0.en.html
+ *
+ * https://base3.de
+ * https://github.com/ddbase3/ChatbotExtensions
+ **********************************************************************/
 
-use AssistantFoundation\Api\IAssistantResponseExtension;
-use AssistantFoundation\Api\IAssistantResponseExtensionExamples;
-use Base3\Api\IAssetResolver;
-use ChatbotExtensions\Extension\AccordionExtension;
-use ChatbotExtensions\Extension\CalloutExtension;
-use ChatbotExtensions\Extension\ChartExtension;
-use ChatbotExtensions\Extension\CodeFormattingExtension;
-use ChatbotExtensions\Extension\DataDownloadExtension;
-use ChatbotExtensions\Extension\KpiCardsExtension;
-use ChatbotExtensions\Extension\LeafletMapExtension;
-use ChatbotExtensions\Extension\MathJaxExtension;
-use ChatbotExtensions\Extension\MermaidExtension;
-use ChatbotExtensions\Extension\ModularGridExtension;
-use ChatbotExtensions\Extension\ProgressExtension;
-use ChatbotExtensions\Extension\RedirectExtension;
-use ChatbotExtensions\Extension\TimelineExtension;
+namespace Base3\ChatbotExtensions\Test\Extension;
+
+use Base3\AssistantFoundation\Api\IAssistantResponseExtension;
+use Base3\AssistantFoundation\Api\IAssistantResponseExtensionExamples;
+use Base3\CoreFoundation\Api\IAssetResolver;
+use Base3\ChatbotExtensions\Extension\AccordionExtension;
+use Base3\ChatbotExtensions\Extension\CalloutExtension;
+use Base3\ChatbotExtensions\Extension\ChartExtension;
+use Base3\ChatbotExtensions\Extension\CodeFormattingExtension;
+use Base3\ChatbotExtensions\Extension\DataDownloadExtension;
+use Base3\ChatbotExtensions\Extension\KpiCardsExtension;
+use Base3\ChatbotExtensions\Extension\LeafletMapExtension;
+use Base3\ChatbotExtensions\Extension\MathJaxExtension;
+use Base3\ChatbotExtensions\Extension\MermaidExtension;
+use Base3\ChatbotExtensions\Extension\ModularGridExtension;
+use Base3\ChatbotExtensions\Extension\ProgressExtension;
+use Base3\ChatbotExtensions\Extension\RedirectExtension;
+use Base3\ChatbotExtensions\Extension\TimelineExtension;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 

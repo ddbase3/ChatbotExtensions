@@ -1,20 +1,35 @@
 <?php declare(strict_types=1);
 
-namespace ChatbotExtensions\Test\Content;
+/***********************************************************************
+ * This file is part of ChatbotExtensions for BASE3 Framework.
+ *
+ * ChatbotExtensions provides optional response renderers for BASE3.
+ * It extends the modular Chatbot client with additional output formats.
+ * The extensions reuse existing Chatbot and runtime service contracts.
+ *
+ * Developed by Daniel Dahme
+ * Licensed under GPL-3.0
+ * https://www.gnu.org/licenses/gpl-3.0.en.html
+ *
+ * https://base3.de
+ * https://github.com/ddbase3/ChatbotExtensions
+ **********************************************************************/
 
-use Base3\Api\IAssetResolver;
-use Base3\Api\IClassMap;
-use Base3\Api\IMvcView;
-use Base3\Api\IRequest;
-use Base3\Authorization\Api\IAuthorizationService;
-use Base3\Authorization\Dto\AuthorizationDecision;
-use Base3\Authorization\Dto\AuthorizationRequest;
-use Base3\LinkTarget\Api\ILinkTargetService;
-use Base3\Settings\Api\ISettingsStore;
-use Chatbot\Service\ChatbotExtensionRegistry;
-use Chatbot\Service\ChatbotExtensionService;
-use ChatbotExtensions\Content\ChatbotExtensionsConfigDisplay;
-use ChatbotExtensions\Extension\CalloutExtension;
+namespace Base3\ChatbotExtensions\Test\Content;
+
+use Base3\CoreFoundation\Api\IAssetResolver;
+use Base3\CoreFoundation\Api\IClassMap;
+use Base3\CoreFoundation\Api\IMvcView;
+use Base3\CoreFoundation\Api\IRequest;
+use Base3\CoreFoundation\Authorization\Api\IAuthorizationService;
+use Base3\CoreFoundation\Authorization\Dto\AuthorizationDecision;
+use Base3\CoreFoundation\Authorization\Dto\AuthorizationRequest;
+use Base3\CoreFoundation\LinkTarget\Api\ILinkTargetService;
+use Base3\CoreFoundation\Settings\Api\ISettingsStore;
+use Base3\Chatbot\Service\ChatbotExtensionRegistry;
+use Base3\Chatbot\Service\ChatbotExtensionService;
+use Base3\ChatbotExtensions\Content\ChatbotExtensionsConfigDisplay;
+use Base3\ChatbotExtensions\Extension\CalloutExtension;
 use PHPUnit\Framework\TestCase;
 
 final class ChatbotExtensionsConfigDisplayTest extends TestCase {

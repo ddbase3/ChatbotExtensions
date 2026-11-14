@@ -11,7 +11,7 @@
  * https://www.gnu.org/licenses/gpl-3.0.en.html
  **********************************************************************/
 
-namespace ChatbotExtensions\Extension;
+namespace Base3\ChatbotExtensions\Extension;
 
 final class TimelineExtension extends AbstractStructuredContentExtension {
 

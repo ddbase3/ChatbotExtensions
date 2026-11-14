@@ -11,9 +11,9 @@
  * https://www.gnu.org/licenses/gpl-3.0.en.html
  **********************************************************************/
 
-namespace ChatbotExtensions\Extension;
+namespace Base3\ChatbotExtensions\Extension;
 
-use AssistantFoundation\Dto\AssistantResponseClientPlugin;
+use Base3\AssistantFoundation\Dto\AssistantResponseClientPlugin;
 
 final class MermaidExtension extends AbstractChatbotExtension {
 
@@ -62,9 +62,9 @@ If the user asks for a diagram, flowchart, sequence diagram, state diagram, clas
 The complete diagram source must use the exact fenced block identifier `mermaid`:
 ```mermaid
 flowchart TD
-    A[Request] --> B{Approved?}
-    B -->|Yes| C[Implement]
-    B -->|No| D[Revise]
+	A[Request] --> B{Approved?}
+	B -->|Yes| C[Implement]
+	B -->|No| D[Revise]
 ```
 The opening fence, the exact identifier `mermaid`, valid Mermaid source, and the closing fence are mandatory.
 Write raw Mermaid syntax inside the block. Do not wrap the source in JSON, HTML, quotes, or another nested code fence.
