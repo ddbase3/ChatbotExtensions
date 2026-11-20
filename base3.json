@@ -2,7 +2,7 @@
 	"manifestVersion": 1,
 	"name": "ChatbotExtensions",
 	"namespace": "Base3\\ChatbotExtensions",
-	"version": "4.5.0",
+	"version": "5.0.0",
 	"description": "Optional response renderers and client-side extensions for the modular BASE3 Chatbot.",
 	"license": "GPL-3.0-or-later",
 	"maintainers": [
@@ -14,11 +14,11 @@
 	],
 	"repository": "https://github.com/ddbase3/ChatbotExtensions",
 	"dependencies": {
-		"Core": ">=4.10.0",
-		"CoreFoundation": ">=4.10.0",
-		"AssistantFoundation": ">=4.17.0",
-		"Chatbot": ">=4.23.0",
-		"ClientStack": ">=4.23.0",
-		"UiFoundation": ">=4.3.0"
+		"Core": ">=5.0.0",
+		"CoreFoundation": ">=5.0.0",
+		"AssistantFoundation": ">=5.0.0",
+		"Chatbot": ">=5.0.0",
+		"ClientStack": ">=5.0.0",
+		"UiFoundation": ">=5.0.0"
 	}
 }
